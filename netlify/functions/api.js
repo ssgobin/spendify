@@ -7,6 +7,7 @@ import helmet from "helmet";
 import rateLimit from "express-rate-limit";
 import Joi from "joi";
 import crypto from "crypto";
+import serverless from "serverless-http";
 
 // Initialize Firebase Admin
 function normalizePrivateKey(raw) {
@@ -44,6 +45,26 @@ if (!admin.apps.length) {
         !privateKey.includes("-----END PRIVATE KEY-----")
     ) {
         throw new Error("FIREBASE_PRIVATE_KEY inválida: formato PEM não reconhecido");
+    }
+
+    console.log("[BOOT] Iniciando function");
+    console.log("[BOOT] FIREBASE_PROJECT_ID?", !!process.env.FIREBASE_PROJECT_ID);
+    console.log("[BOOT] FIREBASE_CLIENT_EMAIL?", !!process.env.FIREBASE_CLIENT_EMAIL);
+    console.log("[BOOT] FIREBASE_PRIVATE_KEY?", !!process.env.FIREBASE_PRIVATE_KEY);
+
+    function normalizePrivateKey(raw) {
+        if (!raw) return "";
+        let key = String(raw).trim();
+
+        if (
+            (key.startsWith('"') && key.endsWith('"')) ||
+            (key.startsWith("'") && key.endsWith("'"))
+        ) {
+            key = key.slice(1, -1);
+        }
+
+        key = key.replace(/\\n/g, "\n").replace(/\r/g, "");
+        return key;
     }
 
     admin.initializeApp({
@@ -433,51 +454,51 @@ app.post("/admin/set-plan", verifyFirebaseToken, async (req, res) => {
 });
 
 app.use((err, req, res, next) => {
-  console.error("[Express Error]", err);
-
-  if (res.headersSent) return next(err);
-
-  return res.status(500).json({
-    error: "internal_server_error",
-    message: "Erro interno no servidor"
-  });
+    console.error("[Express Error]", err);
+    if (res.headersSent) return next(err);
+    res.status(500).json({
+        error: "internal_server_error",
+        message: "Erro interno no servidor"
+    });
 });
+
+export const handler = serverless(app);
 
 // Netlify serverless handler
 export default async (req, res) => {
-  try {
-    // Handle CORS preflight
-    if (req.method === "OPTIONS") {
-      const origin = req.headers.origin || "*";
-      res.setHeader("Access-Control-Allow-Origin", origin);
-      res.setHeader("Vary", "Origin");
-      res.setHeader("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS");
-      res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization");
-      res.setHeader("Access-Control-Allow-Credentials", "true");
-      return res.status(200).end();
-    }
-
-    return await new Promise((resolve) => {
-      app(req, res, (err) => {
-        if (err) {
-          console.error("[Netlify Handler Error]", err);
-          if (!res.headersSent) {
-            res.status(500).json({
-              error: "handler_error",
-              message: "Erro interno no servidor"
-            });
-          }
+    try {
+        // Handle CORS preflight
+        if (req.method === "OPTIONS") {
+            const origin = req.headers.origin || "*";
+            res.setHeader("Access-Control-Allow-Origin", origin);
+            res.setHeader("Vary", "Origin");
+            res.setHeader("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS");
+            res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization");
+            res.setHeader("Access-Control-Allow-Credentials", "true");
+            return res.status(200).end();
         }
-        resolve();
-      });
-    });
-  } catch (e) {
-    console.error("[Fatal Handler Error]", e);
-    if (!res.headersSent) {
-      return res.status(500).json({
-        error: "fatal_handler_error",
-        message: "Erro interno no servidor"
-      });
+
+        return await new Promise((resolve) => {
+            app(req, res, (err) => {
+                if (err) {
+                    console.error("[Netlify Handler Error]", err);
+                    if (!res.headersSent) {
+                        res.status(500).json({
+                            error: "handler_error",
+                            message: "Erro interno no servidor"
+                        });
+                    }
+                }
+                resolve();
+            });
+        });
+    } catch (e) {
+        console.error("[Fatal Handler Error]", e);
+        if (!res.headersSent) {
+            return res.status(500).json({
+                error: "fatal_handler_error",
+                message: "Erro interno no servidor"
+            });
+        }
     }
-  }
 };
