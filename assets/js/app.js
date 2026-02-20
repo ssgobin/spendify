@@ -888,14 +888,14 @@ async function createPaymentFlow(plan) {
   const cur = auth.currentUser;
   if (!cur) throw new Error("Sem usuário");
 
-  // Carrega nome e CPF salvos durante o signup
+  // Carrega nome e CPF/CNPJ salvos durante o signup
   let fullName = cur.displayName || "";
   let cpf = "";
 
   try {
     const userDoc = await db.collection("users").doc(cur.uid).get();
     if (userDoc.exists) {
-      const userData = userDoc.data();
+      const userData = userDoc.data() || {};
       fullName = userData.name || fullName;
       cpf = userData.document || cpf;
     }
@@ -939,10 +939,11 @@ async function createPaymentFlow(plan) {
       });
 
       if (!res.isConfirmed) return;
+
       fullName = res.value.name;
       cpf = res.value.doc;
 
-      // Salva os dados atualizados no Firebase
+      // Salva os dados atualizados no Firebase (mantém com máscara para exibição)
       try {
         await db.collection("users").doc(cur.uid).set(
           {
@@ -955,7 +956,20 @@ async function createPaymentFlow(plan) {
       } catch (e) {
         console.warn("Erro ao atualizar dados:", e);
       }
+    } else {
+      throw new Error("SweetAlert não disponível para coletar dados de pagamento");
     }
+  }
+
+  // Backend valida somente números (11 a 14 dígitos)
+  const cleanDocument = String(cpf).replace(/\D/g, "");
+  if (!/^\d{11,14}$/.test(cleanDocument)) {
+    await uiAlert({
+      title: "Documento inválido",
+      text: "Informe um CPF ou CNPJ válido (somente números ou com máscara).",
+      icon: "warning"
+    });
+    return;
   }
 
   const payload = {
@@ -965,57 +979,90 @@ async function createPaymentFlow(plan) {
     customer: {
       email: cur.email || "",
       name: fullName,
-      document: cpf,
+      document: cleanDocument,
     }
   };
-  const base = "/api";
+
+  // ✅ Se estiver usando Netlify Functions sem redirect, este é o correto
+  const base = "/.netlify/functions/api";
+
   // Permite sobrescrever o endpoint da API em dev/produção
   const apiBase = window.SPENDIFY_API_BASE || base;
-  console.log("[Payment] criando pagamento", { plan, apiBase, payload });
 
-  const r = await fetch(`${apiBase}/payments/create`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(payload),
+  // ✅ Backend exige token Firebase no Authorization
+  const token = await cur.getIdToken();
+
+  console.log("[Payment] criando pagamento", {
+    plan,
+    apiBase,
+    uid: payload.uid,
+    method: payload.method
   });
 
-  console.log("[Payment] Response status:", r.status, r.statusText);
-
-  if (!r.ok) {
-    const errorText = await r.text();
-    console.error("[Payment] Erro na resposta:", errorText);
-    await uiAlert({ title: "Falha ao iniciar pagamento", text: errorText || "Tente novamente.", icon: "error" });
-    return;
-  }
-
-  const data = await r.json();
-  console.log("[Payment] Dados recebidos:", data);
-  console.log("[Payment] Raw response:", JSON.stringify(data, null, 2));
-
-  const raw = data?.raw || {};
-
-  // Verifica se houve erro do Paghiper
-  if (raw?.pix_create_request?.result === "reject" || raw?.result === "reject") {
-    const errMsg = raw?.pix_create_request?.response_message || raw?.response_message || "Erro desconhecido";
-    console.error("[Payment] Paghiper rejeitou:", errMsg);
+  let r;
+  try {
+    r = await fetch(`${apiBase}/payments/create`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${token}`,
+      },
+      body: JSON.stringify(payload),
+    });
+  } catch (networkError) {
+    console.error("[Payment] Erro de rede:", networkError);
     await uiAlert({
-      title: "Erro no pagamento",
-      text: `Paghiper: ${errMsg}`,
+      title: "Falha ao iniciar pagamento",
+      text: "Não foi possível conectar ao servidor. Tente novamente.",
       icon: "error"
     });
     return;
   }
 
-  const qrImg = data?.pix_qr_image || raw?.pix_qr_image || raw?.qr_code_image || raw?.qrcode_image || raw?.qr_image_url;
-  const boletoUrl = data?.boleto_url || raw?.boleto_url || raw?.bank_slip?.url_slip || raw?.bank_slip?.url || raw?.url;
+  console.log("[Payment] Response status:", r.status, r.statusText);
+  console.log("[Payment] Content-Type:", r.headers.get("content-type"));
 
-  console.log("[Payment] Extração:", { qrImg: !!qrImg, boletoUrl: !!boletoUrl });
+  // ✅ Parse seguro para não quebrar com resposta vazia/HTML
+  const rawText = await r.text();
+  let data = {};
+
+  try {
+    data = rawText ? JSON.parse(rawText) : {};
+  } catch (err) {
+    console.error("[Payment] Resposta não-JSON:", rawText);
+    await uiAlert({
+      title: "Falha ao iniciar pagamento",
+      text: "Servidor retornou uma resposta inválida.",
+      icon: "error"
+    });
+    return;
+  }
+
+  if (!r.ok) {
+    console.error("[Payment] Erro na resposta:", data);
+    await uiAlert({
+      title: "Falha ao iniciar pagamento",
+      text: data.message || data.error || "Tente novamente.",
+      icon: "error"
+    });
+    return;
+  }
+
+  console.log("[Payment] Dados recebidos:", data);
+
+  // ✅ Nomes corretos do backend
+  const qrImg = data?.pixQrImage || null;
+  const boletoUrl = data?.boletoUrl || null;
+  const orderId = data?.orderId || null;
+
+  console.log("[Payment] Extração:", { qrImg: !!qrImg, boletoUrl: !!boletoUrl, orderId });
 
   if (!qrImg && !boletoUrl) {
-    console.warn("[Payment] Nenhuma imagem ou URL encontrada. Raw completo:", raw);
     await uiAlert({
       title: "Pagamento criado",
-      text: `Order ID: ${data.referenceId}\n\nResposta Paghiper:\n${JSON.stringify(raw, null, 2)}`,
+      text: orderId
+        ? `Order ID: ${orderId}\n\nPagamento criado, mas o QR Code/URL não foi retornado.`
+        : "Pagamento criado, mas o QR Code/URL não foi retornado.",
       icon: "info"
     });
     return;
@@ -1025,13 +1072,26 @@ async function createPaymentFlow(plan) {
     if (qrImg) {
       await Swal.fire({
         title: "Pague com PIX",
-        html: `<img src="${qrImg}" alt="QR Code" style="max-width:100%;border-radius:12px;" /><p style="margin-top: 12px; font-size: 12px; color: #666;">Aguardando confirmação do pagamento...</p>`,
+        html: `
+          <img src="${qrImg}" alt="QR Code" style="max-width:100%;border-radius:12px;" />
+          <p style="margin-top:12px;font-size:12px;color:#666;">
+            Aguardando confirmação do pagamento...
+          </p>
+          ${orderId ? `<p style="font-size:11px;color:#999;">Pedido: ${orderId}</p>` : ""}
+        `,
         icon: "info",
+        confirmButtonText: "Ok"
       });
     } else if (boletoUrl) {
       await Swal.fire({
         title: "Boleto gerado",
-        html: `<a href="${boletoUrl}" target="_blank" class="btn btn-primary">Abrir boleto</a><p style="margin-top: 12px; font-size: 12px; color: #666;">Aguardando confirmação do pagamento...</p>`,
+        html: `
+          <a href="${boletoUrl}" target="_blank" class="btn btn-primary">Abrir boleto</a>
+          <p style="margin-top:12px;font-size:12px;color:#666;">
+            Aguardando confirmação do pagamento...
+          </p>
+          ${orderId ? `<p style="font-size:11px;color:#999;">Pedido: ${orderId}</p>` : ""}
+        `,
         icon: "info",
         confirmButtonText: "Ok",
       });
@@ -1043,28 +1103,41 @@ async function createPaymentFlow(plan) {
   // Monitora a confirmação do pagamento
   console.log("[Payment] Monitorando plano para confirmação...");
   const settingsRef = db.collection("users").doc(cur.uid).collection("meta").doc("settings");
-  let unsubscribe;
-  let timeoutId;
 
-  unsubscribe = settingsRef.onSnapshot((snap) => {
-    const newPlan = snap.data()?.plan;
-    console.log("[Payment] Plano atual:", newPlan);
+  let unsubscribe = null;
+  let timeoutId = null;
+  let confirmed = false;
 
-    if (newPlan && newPlan !== plan && newPlan !== "free") {
-      console.log("[Payment] ✅ Pagamento confirmado! Novo plano:", newPlan);
+  unsubscribe = settingsRef.onSnapshot(
+    (snap) => {
+      const newPlan = snap.data()?.plan;
+      console.log("[Payment] Plano atual:", newPlan);
 
-      // Limpa o listener e timeout
-      if (unsubscribe) unsubscribe();
-      if (timeoutId) clearTimeout(timeoutId);
+      // ✅ confirmação correta: quando o plano vira exatamente o plano comprado
+      if (!confirmed && newPlan === plan) {
+        confirmed = true;
+        console.log("[Payment] ✅ Pagamento confirmado! Novo plano:", newPlan);
 
-      // Mostra tela de confirmação
-      showPaymentConfirmation(newPlan);
+        if (unsubscribe) unsubscribe();
+        if (timeoutId) clearTimeout(timeoutId);
+
+        if (typeof showPaymentConfirmation === "function") {
+          showPaymentConfirmation(newPlan);
+        } else {
+          uiAlert({
+            title: "Pagamento confirmado",
+            text: `Seu plano ${newPlan} foi ativado com sucesso!`,
+            icon: "success"
+          });
+        }
+      }
+    },
+    (error) => {
+      console.error("[Payment] Erro ao monitorar plano:", error);
     }
-  }, (error) => {
-    console.error("[Payment] Erro ao monitorar plano:", error);
-  });
+  );
 
-  // Timeout de 5 minutos - se não confirmar, limpa o listener
+  // Timeout de 5 minutos
   timeoutId = setTimeout(() => {
     console.log("[Payment] Timeout de 5 minutos, parando monitoramento");
     if (unsubscribe) unsubscribe();

@@ -432,17 +432,52 @@ app.post("/admin/set-plan", verifyFirebaseToken, async (req, res) => {
     }
 });
 
+app.use((err, req, res, next) => {
+  console.error("[Express Error]", err);
+
+  if (res.headersSent) return next(err);
+
+  return res.status(500).json({
+    error: "internal_server_error",
+    message: "Erro interno no servidor"
+  });
+});
+
 // Netlify serverless handler
 export default async (req, res) => {
+  try {
     // Handle CORS preflight
     if (req.method === "OPTIONS") {
-        res.setHeader("Access-Control-Allow-Origin", "*");
-        res.setHeader("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS");
-        res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization");
-        return res.status(200).end();
+      const origin = req.headers.origin || "*";
+      res.setHeader("Access-Control-Allow-Origin", origin);
+      res.setHeader("Vary", "Origin");
+      res.setHeader("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS");
+      res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization");
+      res.setHeader("Access-Control-Allow-Credentials", "true");
+      return res.status(200).end();
     }
 
-    return new Promise((resolve) => {
-        app(req, res, () => resolve());
+    return await new Promise((resolve) => {
+      app(req, res, (err) => {
+        if (err) {
+          console.error("[Netlify Handler Error]", err);
+          if (!res.headersSent) {
+            res.status(500).json({
+              error: "handler_error",
+              message: "Erro interno no servidor"
+            });
+          }
+        }
+        resolve();
+      });
     });
+  } catch (e) {
+    console.error("[Fatal Handler Error]", e);
+    if (!res.headersSent) {
+      return res.status(500).json({
+        error: "fatal_handler_error",
+        message: "Erro interno no servidor"
+      });
+    }
+  }
 };
