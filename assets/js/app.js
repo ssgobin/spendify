@@ -984,10 +984,9 @@ async function createPaymentFlow(plan) {
   };
 
   // ✅ Se estiver usando Netlify Functions sem redirect, este é o correto
-  const base = "/.netlify/functions/api";
-
-  // Permite sobrescrever o endpoint da API em dev/produção
+  const base = "/api";
   const apiBase = window.SPENDIFY_API_BASE || base;
+
 
   // ✅ Backend exige token Firebase no Authorization
   const token = await cur.getIdToken();
