@@ -1,0 +1,861 @@
+<!doctype html>
+<html lang="pt-BR">
+
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Spendify</title>
+  <meta name="theme-color" content="#0d6efd" />
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link rel="apple-touch-icon" sizes="180x180" href="./assets/img/logo-icon.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="./assets/img/logo-icon.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="./assets/img/logo-icon.png">
+  <link rel="manifest" href="./assets/img/site.webmanifest">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+  <link href="./assets/css/styles.css" rel="stylesheet">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Montserrat:ital,wght@0,100..900;1,100..900&display=swap"
+    rel="stylesheet">
+</head>
+
+<script>
+  // Detecta ambiente e define URL da API
+  const isDev = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+  window.SPENDIFY_API_BASE = isDev ? "http://localhost:3001" : "/.netlify/functions/api";
+</script>
+
+<body class="bg-body-tertiary">
+  <nav id="mainNavbar" class="navbar navbar-expand-lg navbar-dark bg-dark sticky-top">
+    <div class="container">
+      <a class="navbar-brand" href="#">
+        <img src="./assets/img/logo-icon.png" alt="Spendify Logo" style="height: 50px; object-fit: contain;">
+      </a>
+
+      <!-- Quando LOGADO -->
+      <div id="navAuthed" class="ms-auto d-none">
+        <div class="d-flex align-items-center gap-2">
+          <div class="dropdown">
+            <button class="btn btn-outline-light btn-sm d-flex align-items-center gap-2 user-menu"
+              data-bs-toggle="dropdown" aria-expanded="false" id="userMenuBtn" type="button">
+              <img id="userAvatar" class="avatar" alt="Avatar" />
+              <span id="userChip" class="user-name">...</span>
+              <span class="chev">▾</span>
+            </button>
+
+            <ul class="dropdown-menu dropdown-menu-end shadow-sm rounded-4 p-2" aria-labelledby="userMenuBtn">
+              <li class="px-2 pt-1 pb-2">
+                <div class="small text-secondary">Conta</div>
+                <div id="userEmail" class="fw-semibold small text-truncate"></div>
+              </li>
+              <li>
+                <hr class="dropdown-divider my-2">
+              </li>
+
+              <li>
+                <button id="btnProfile" class="dropdown-item rounded-3" type="button">
+                  Perfil
+                </button>
+              </li>
+              <li>
+                <button id="btnPlans" class="dropdown-item rounded-3" type="button">
+                  Gerenciar plano
+                </button>
+              </li>
+
+              <li>
+                <button style="display: none;" id="btnThemeToggle" class="dropdown-item rounded-3" type="button">
+                  Alternar tema (claro/escuro)
+                </button>
+              </li>
+
+              <li>
+                <button id="btnHousehold" class="dropdown-item rounded-3" type="button">
+                  Cofre compartilhado
+                </button>
+              </li>
+              <li>
+                <button id="btnLeaveHousehold" class="dropdown-item rounded-3 text-danger" type="button">
+                  Sair do cofre
+                </button>
+              </li>
+
+              <li>
+                <button id="btnLogout" class="dropdown-item rounded-3 text-warning" type="button">
+                  Sair
+                </button>
+              </li>
+            </ul>
+          </div>
+
+          <span id="scopeLabel" class="badge text-bg-light me-2 align-self-center d-none d-md-inline">Pessoal</span>
+          <button id="btnLogoutHidden" class="btn btn-outline-warning btn-sm" style="display: none;">Sair</button>
+        </div>
+      </div>
+    </div>
+  </nav>
+
+  <!-- HOME (página principal pública) -->
+  <main id="homeView" class="container my-5 d-none">
+    <div class="row justify-content-center">
+      <div class="col-12 col-lg-10">
+        <div class="text-center mb-4">
+          <img src="./assets/img/logo.png" alt="Spendify"
+            style="height: 150px; margin-bottom: 30px; object-fit: contain;">
+          <h1 class="fw-bold">Spendify — controle financeiro simples e poderoso</h1>
+          <div class="lead text-secondary">Organize seus gastos, alcance metas e tenha clareza do seu dinheiro.</div>
+          <div class="d-flex flex-wrap gap-2 justify-content-center mt-3">
+            <button id="btnOpenLogin" class="btn btn-primary btn-lg">Entrar / Criar conta</button>
+            <a href="#pricingSection" class="btn btn-outline-primary btn-lg">Ver planos</a>
+          </div>
+        </div>
+        <div class="row g-4 mb-3">
+          <div class="col-12 col-md-4">
+            <div class="card shadow-sm rounded-4 h-100">
+              <div class="card-body">
+                <div class="fw-bold">Guarde mais todo mês</div>
+                <div class="small text-secondary">Veja para onde vai seu dinheiro e corte excessos com confiança.</div>
+              </div>
+            </div>
+          </div>
+          <div class="col-12 col-md-4">
+            <div class="card shadow-sm rounded-4 h-100">
+              <div class="card-body">
+                <div class="fw-bold">Comece em minutos</div>
+                <div class="small text-secondary">Sem planilhas, sem complicação. Tudo pronto, direto no navegador.
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="col-12 col-md-4">
+            <div class="card shadow-sm rounded-4 h-100">
+              <div class="card-body">
+                <div class="fw-bold">Organize em casal/família</div>
+                <div class="small text-secondary">Cofre compartilhado (plano Família) para decisões transparentes.</div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div id="pricingSection" class="card shadow-sm rounded-4">
+          <div class="card-body">
+            <div class="d-flex flex-wrap justify-content-between align-items-center gap-2">
+              <div>
+                <h5 class="mb-1">Planos do Spendify</h5>
+                <div class="text-secondary small">Escolha um plano e comece hoje.</div>
+              </div>
+              <span class="badge text-bg-primary">Pricing</span>
+            </div>
+            <div class="row g-3 mt-2">
+              <div class="col-12 col-lg-4">
+                <div class="plan-card">
+                  <div class="plan-title">Basic</div>
+                  <div class="plan-price">R$ 10,90<span>/mês</span></div>
+                  <ul class="plan-list">
+                    <li>1 usuário, 1 cofre pessoal</li>
+                    <li>Lançamentos + filtros</li>
+                    <li>Gráficos básicos</li>
+                  </ul>
+                  <button id="btnUpgradeBasic" class="btn btn-outline-primary w-100">Assinar Basic</button>
+                </div>
+              </div>
+              <div class="col-12 col-lg-4">
+                <div class="plan-card featured">
+                  <div class="plan-badge">Mais vendido</div>
+                  <div class="plan-title">Pro</div>
+                  <div class="plan-price">R$ 15,90<span>/mês</span></div>
+                  <ul class="plan-list">
+                    <li>Recorrências ilimitadas</li>
+                    <li>Metas + projeções</li>
+                    <li>Comparativo de meses</li>
+                  </ul>
+                  <button id="btnUpgradePro" class="btn btn-primary w-100">Assinar Pro</button>
+                </div>
+              </div>
+              <div class="col-12 col-lg-4">
+                <div class="plan-card">
+                  <div class="plan-title">Family</div>
+                  <div class="plan-price">R$ 25,90<span>/mês</span></div>
+                  <ul class="plan-list">
+                    <li>Cofre compartilhado</li>
+                    <li>Papéis (owner/member)</li>
+                    <li>Histórico de alterações</li>
+                  </ul>
+                  <button id="btnUpgradeFamily" class="btn btn-outline-primary w-100">Assinar Family</button>
+                </div>
+              </div>
+            </div>
+            <div class="small text-secondary mt-3">Para assinar um plano, é necessário entrar/criar conta.</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </main>
+  <!-- LOGIN (mostra quando DESLOGADO) -->
+  <main id="authView" class="container my-5">
+    <div class="row justify-content-center">
+      <div class="col-12 col-md-7 col-lg-5">
+        <div class="card shadow-sm rounded-4">
+          <div class="card-body p-4">
+            <h4 class="fw-bold mb-1">Entrar</h4>
+            <div class="text-secondary mb-4">Acesse com Google ou com email e senha.</div>
+
+            <div class="d-grid gap-2">
+              <button id="btnGoogle" class="btn btn-dark btn-lg rounded-3">
+                <span class="me-2">🔐</span> Entrar com Google
+              </button>
+            </div>
+
+            <div class="d-flex align-items-center gap-2 my-3">
+              <div class="flex-grow-1 border-top"></div>
+              <div class="text-secondary small">ou</div>
+              <div class="flex-grow-1 border-top"></div>
+            </div>
+
+            <form id="emailLoginForm" class="vstack gap-2">
+              <div>
+                <label class="form-label">Email</label>
+                <input id="loginEmail" type="email" class="form-control form-control-lg rounded-3"
+                  placeholder="seuemail@exemplo.com" required>
+              </div>
+              <div>
+                <label class="form-label">Senha</label>
+                <input id="loginPassword" type="password" class="form-control form-control-lg rounded-3"
+                  placeholder="••••••••" required>
+              </div>
+
+              <div class="d-grid gap-2 mt-2">
+                <button id="btnEmailLogin" type="submit" class="btn btn-primary btn-lg rounded-3">
+                  Entrar com Email
+                </button>
+                <button id="btnEmailSignup" type="button" class="btn btn-outline-primary btn-lg rounded-3">
+                  Criar conta com Email
+                </button>
+              </div>
+
+              <div id="authMsg" class="small mt-2 text-danger d-none"></div>
+            </form>
+          </div>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <!-- APP (mostra quando LOGADO) -->
+  <main id="appView" class="container my-4 d-none">
+    <div class="d-flex align-items-center justify-content-between mb-3">
+      <div>
+        <h4 class="mb-0">Painel Financeiro</h4>
+        <div class="text-secondary small">Organize, analise e compare seus meses</div>
+      </div>
+      <div class="d-flex gap-2 align-items-end">
+        <div class="d-flex gap-2">
+          <input id="monthPicker" type="month" class="form-control" />
+          <button id="btnToday" class="btn btn-outline-secondary">Hoje</button>
+        </div>
+        <button id="btnAddExpense" class="btn btn-outline-primary">+ Nova Despesa</button>
+        <button id="btnAddIncome" class="btn btn-outline-success">+ Novo Recebimento</button>
+      </div>
+    </div>
+    <ul class="nav nav-tabs" id="mainTabs" role="tablist">
+      <li class="nav-item" role="presentation">
+        <button class="nav-link active" id="tab-visao-tab" data-bs-toggle="tab" data-bs-target="#tab-visao"
+          type="button" role="tab" aria-controls="tab-visao" aria-selected="true">Visão</button>
+      </li>
+      <li class="nav-item" role="presentation">
+        <button class="nav-link" id="tab-graficos-tab" data-bs-toggle="tab" data-bs-target="#tab-graficos" type="button"
+          role="tab" aria-controls="tab-graficos" aria-selected="false">Gráficos</button>
+      </li>
+      <li class="nav-item" role="presentation">
+        <button class="nav-link" id="tab-proj-tab" data-bs-toggle="tab" data-bs-target="#tab-proj" type="button"
+          role="tab" aria-controls="tab-proj" aria-selected="false">Projeções</button>
+      </li>
+      <li class="nav-item" role="presentation">
+        <button class="nav-link" id="tab-metas-tab" data-bs-toggle="tab" data-bs-target="#tab-metas" type="button"
+          role="tab" aria-controls="tab-metas" aria-selected="false">Metas</button>
+      </li>
+      <li class="nav-item" role="presentation">
+        <button class="nav-link" id="tab-periodo-tab" data-bs-toggle="tab" data-bs-target="#tab-periodo" type="button"
+          role="tab" aria-controls="tab-periodo" aria-selected="false">Análise por Período</button>
+      </li>
+      <li class="nav-item" role="presentation">
+        <button class="nav-link" id="tab-compare-tab" data-bs-toggle="tab" data-bs-target="#tab-compare" type="button"
+          role="tab" aria-controls="tab-compare" aria-selected="false">Comparativo de Meses</button>
+      </li>
+
+      <li class="nav-item" role="presentation">
+        <button class="nav-link" id="tab-recorrencias-tab" data-bs-toggle="tab" data-bs-target="#tab-recorrencias"
+          type="button" role="tab" aria-controls="tab-recorrencias" aria-selected="false">Recorrências</button>
+      </li>
+      <li class="nav-item" role="presentation">
+        <button class="nav-link" id="tab-categorias-tab" data-bs-toggle="tab" data-bs-target="#tab-categorias"
+          type="button" role="tab" aria-controls="tab-categorias" aria-selected="false">Categorias</button>
+      </li>
+      <li class="nav-item" role="presentation">
+        <button class="nav-link" id="tab-config-tab" data-bs-toggle="tab" data-bs-target="#tab-config" type="button"
+          role="tab" aria-controls="tab-config" aria-selected="false">Configurações</button>
+      </li>
+    </ul>
+    <div class="tab-content">
+      <div class="tab-pane fade show active pt-3" id="tab-visao" role="tabpanel" aria-labelledby="tab-visao-tab">
+        <div class="row g-3">
+          <div class="col-12 col-lg-4">
+            <div class="card shadow-sm rounded-4">
+              <div class="card-body">
+                <div style="display: none;">
+                  <div class="d-flex align-items-center justify-content-between mb-2">
+                    <h5 class="card-title mb-0">Configuração</h5>
+                    <span class="badge text-bg-secondary">Firebase</span>
+                  </div>
+                  <div class="mb-3">
+                    <label class="form-label">Salário (total do mês)</label>
+                    <div class="input-group">
+                      <span class="input-group-text">R$</span>
+                      <input id="salaryMonthly" type="number" class="form-control" min="0" step="0.01"
+                        placeholder="Ex: 2100">
+                    </div>
+                    <div class="form-text">Isso serve para gerar parcelas automáticas e para metas/indicadores.</div>
+                  </div>
+                  <div class="mb-3">
+                    <label class="form-label">Recebimentos automáticos</label>
+                    <div class="form-check">
+                      <input class="form-check-input" type="checkbox" id="autoIncomeEnabled" checked>
+                      <label class="form-check-label" for="autoIncomeEnabled">Criar 2 recebimentos (dia 5 e dia
+                        20)</label>
+                    </div>
+                    <div class="row g-2 mt-2">
+                      <div class="col-6">
+                        <label class="form-label small mb-1">Dia 1</label>
+                        <input id="autoIncomeDay1" type="number" class="form-control" min="1" max="31" value="5">
+                      </div>
+                      <div class="col-6">
+                        <label class="form-label small mb-1">Dia 2</label>
+                        <input id="autoIncomeDay2" type="number" class="form-control" min="1" max="31" value="20">
+                      </div>
+                    </div>
+                    <div class="form-text">Dividimos o salário em 2 (50/50). Você pode ajustar depois nos recebimentos.
+                    </div>
+                  </div>
+                </div>
+                <h6 class="mb-3">Resumo</h6>
+                <div class="row g-2">
+                  <div class="col-6">
+                    <div class="stat p-3 rounded-4 bg-success-subtle">
+                      <div class="label">Receitas</div>
+                      <div id="sumIncome" class="value">R$ 0,00</div>
+                      <div id="trendIncome" class="trend small text-secondary mt-1">—</div>
+                    </div>
+                  </div>
+                  <div class="col-6">
+                    <div class="stat p-3 rounded-4 bg-danger-subtle">
+                      <div class="label">Despesas</div>
+                      <div id="sumExpense" class="value">R$ 0,00</div>
+                      <div id="trendExpense" class="trend small text-secondary mt-1">—</div>
+                    </div>
+                  </div>
+                  <div class="col-12">
+                    <div class="stat p-3 rounded-4 bg-primary-subtle">
+                      <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                          <div class="label">Saldo do mês</div>
+                          <div id="sumBalance" class="value">R$ 0,00</div>
+                          <div id="trendBalance" class="trend small text-secondary mt-1">—</div>
+                        </div>
+                        <div class="text-end">
+                          <div class="label">Pago</div>
+                          <div id="sumPaid" class="value">R$ 0,00</div>
+                        </div>
+                      </div>
+                      <div class="progress mt-2" role="progressbar" aria-label="Progresso de despesas pagas">
+                        <div id="paidProgress" class="progress-bar" style="width: 0%"></div>
+                      </div>
+                      <div class="form-text mt-1">Progresso: despesas marcadas como pagas / total de despesas.</div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="col-12 col-lg-8">
+            <div class="card shadow-sm rounded-4">
+              <div class="card-body">
+                <div class="d-flex flex-wrap gap-2 align-items-center justify-content-between">
+                  <div>
+                    <h5 class="mb-0">Lançamentos</h5>
+                    <div class="text-secondary small">Filtre, marque como pago e acompanhe o saldo.</div>
+                  </div>
+                  <div class="d-flex gap-2">
+                    <input id="search" class="form-control" placeholder="Buscar por nome/categoria..."
+                      style="min-width: 240px;">
+                    <select id="filterType" class="form-select" style="max-width: 190px;">
+                      <option value="all">Todos</option>
+                      <option value="income">Recebimentos</option>
+                      <option value="expense">Despesas</option>
+                    </select>
+                    <select id="filterStatus" class="form-select" style="max-width: 190px;">
+                      <option value="all">Todos</option>
+                      <option value="open">Em aberto</option>
+                      <option value="paid">Pago</option>
+                    </select>
+                  </div>
+
+                  <div class="actionbar-sticky mt-2">
+                    <div class="d-flex flex-wrap gap-2 align-items-center justify-content-between">
+                      <div class="d-flex gap-2 flex-wrap">
+                        <button id="btnQuickExpense" class="btn btn-sm btn-outline-primary">+ Nova Despesa</button>
+                        <button id="btnQuickIncome" class="btn btn-sm btn-outline-success">+ Novo Recebimento</button>
+                        <button id="btnCompactToggle" class="btn btn-sm btn-outline-secondary">Modo compacto</button>
+                      </div>
+                      <div class="small text-secondary d-none d-md-block">
+                        Atalhos: <kbd>N</kbd> nova despesa, <kbd>R</kbd> novo recebimento
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                <div id="monthLoading" class="alert alert-info d-none py-2 px-3 mb-3" role="status" aria-live="polite">
+                  <span class="spinner-border spinner-border-sm me-2" aria-hidden="true"></span>
+                  Sincronizando dados do mês...
+                </div>
+                <div id="tableSkeleton" class="d-none mb-2" aria-hidden="true">
+                  <div class="skeleton-line mb-2"></div>
+                  <div class="skeleton-line mb-2"></div>
+                  <div class="skeleton-line mb-2"></div>
+                  <div class="skeleton-line mb-2"></div>
+                </div>
+                <div class="mt-3 table-responsive">
+                  <table class="table align-middle">
+                    <thead>
+                      <tr>
+                        <th>Tipo</th>
+                        <th>Nome</th>
+                        <th>Categoria</th>
+                        <th>Vencimento</th>
+                        <th class="text-end">Valor</th>
+                        <th class="text-center">Pago</th>
+                        <th class="text-end">Ações</th>
+                      </tr>
+                    </thead>
+                    <tbody id="rows"></tbody>
+                  </table>
+                </div>
+                <div id="paginationBox"></div>
+                <div id="emptyState" class="text-center py-5 text-secondary d-none">
+                  <div class="display-6">🧾</div>
+                  <div class="mt-2">Nenhum lançamento nesse mês ainda.</div>
+                  <div class="small">Clique em “Nova Despesa” ou “Novo Recebimento”.</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="tab-pane fade" id="tab-graficos" role="tabpanel" aria-labelledby="tab-graficos-tab">
+        <div class="row g-4">
+          <div class="col-12 col-lg-6">
+            <div class="card shadow-sm rounded-4">
+              <div class="card-body">
+                <h6 class="mb-3">Receitas vs Despesas por dia</h6>
+                <canvas id="chartDaily" height="140"></canvas>
+                <div class="form-text mt-2">Base no vencimento.</div>
+              </div>
+            </div>
+          </div>
+          <div class="col-12 col-lg-6">
+            <div class="card shadow-sm rounded-4">
+              <div class="card-body">
+                <h6 class="mb-3">Despesas por categoria</h6>
+                <canvas id="chartByCategory" height="140"></canvas>
+                <div class="form-text mt-2">Somatório de despesas do mês.</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="tab-pane fade" id="tab-proj" role="tabpanel" aria-labelledby="tab-proj-tab">
+        <div class="row g-4">
+          <div class="col-12">
+            <div class="card shadow-sm rounded-4">
+              <div class="card-body">
+                <h6 class="mb-3">Projeções</h6>
+                <div class="table-responsive">
+                  <table class="table">
+                    <thead>
+                      <tr>
+                        <th>Mês</th>
+                        <th class="text-end">Receitas</th>
+                        <th class="text-end">Despesas</th>
+                        <th class="text-end">Saldo</th>
+                      </tr>
+                    </thead>
+                    <tbody id="projRows"></tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="tab-pane fade" id="tab-metas" role="tabpanel" aria-labelledby="tab-metas-tab">
+        <div class="row g-4">
+          <div class="col-12">
+            <div class="card shadow-sm rounded-4">
+              <div class="card-body">
+                <h6 class="mb-3">Metas</h6>
+                <div class="d-flex gap-3 align-items-end">
+                  <div>
+                    <label class="form-label">Meta de economia mensal</label>
+                    <div class="input-group">
+                      <span class="input-group-text">R$</span>
+                      <input id="goalMonthly" type="number" class="form-control" min="0" step="0.01">
+                    </div>
+                  </div>
+                  <button id="goalSaveBtn" class="btn btn-primary">Salvar Meta</button>
+                </div>
+                <div class="mt-3">
+                  <div class="stat p-3 rounded-4 bg-primary-subtle">
+                    <div class="label">Meta atual</div>
+                    <div id="goalCurrent" class="value">R$ 0,00</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="tab-pane fade" id="tab-periodo" role="tabpanel" aria-labelledby="tab-periodo-tab">
+        <div class="row g-4">
+          <div class="col-12">
+            <div class="card shadow-sm rounded-4">
+              <div class="card-body">
+                <h6 class="mb-3">Análise por Período</h6>
+                <div class="d-flex gap-3 align-items-end">
+                  <div>
+                    <label class="form-label">Início</label>
+                    <input id="periodStart" type="month" class="form-control">
+                  </div>
+                  <div>
+                    <label class="form-label">Fim</label>
+                    <input id="periodEnd" type="month" class="form-control">
+                  </div>
+                  <button id="periodRunBtn" class="btn btn-primary">Analisar</button>
+                </div>
+                <div class="row g-2 mt-3">
+                  <div class="col-12 col-md-4">
+                    <div class="stat p-3 rounded-4 bg-success-subtle">
+                      <div class="label">Receitas</div>
+                      <div id="periodIncome" class="value">R$ 0,00</div>
+                    </div>
+                  </div>
+                  <div class="col-12 col-md-4">
+                    <div class="stat p-3 rounded-4 bg-danger-subtle">
+                      <div class="label">Despesas</div>
+                      <div id="periodExpense" class="value">R$ 0,00</div>
+                    </div>
+                  </div>
+                  <div class="col-12 col-md-4">
+                    <div class="stat p-3 rounded-4 bg-primary-subtle">
+                      <div class="label">Saldo</div>
+                      <div id="periodBalance" class="value">R$ 0,00</div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="tab-pane fade" id="tab-compare" role="tabpanel" aria-labelledby="tab-compare-tab">
+        <div class="row g-4">
+          <div class="col-12">
+            <div class="card shadow-sm rounded-4">
+              <div class="card-body">
+                <h6 class="mb-3">Comparativo de Meses</h6>
+                <div class="d-flex gap-3 align-items-end">
+                  <div>
+                    <label class="form-label">Mês A</label>
+                    <input id="cmpA" type="month" class="form-control">
+                  </div>
+                  <div>
+                    <label class="form-label">Mês B</label>
+                    <input id="cmpB" type="month" class="form-control">
+                  </div>
+                  <button id="cmpRunBtn" class="btn btn-primary">Comparar</button>
+                </div>
+                <div class="table-responsive mt-3">
+                  <table class="table">
+                    <thead>
+                      <tr>
+                        <th></th>
+                        <th class="text-end">Receitas</th>
+                        <th class="text-end">Despesas</th>
+                        <th class="text-end">Saldo</th>
+                      </tr>
+                    </thead>
+                    <tbody id="cmpRows"></tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="tab-pane fade" id="tab-recorrencias" role="tabpanel" aria-labelledby="tab-recorrencias-tab">
+        <div class="row g-4 pt-3">
+          <div class="col-12">
+            <div class="card shadow-sm rounded-4">
+              <div class="card-body">
+                <div class="d-flex flex-wrap gap-2 justify-content-between align-items-center">
+                  <div>
+                    <h6 class="mb-1">Recorrências</h6>
+                    <div class="text-secondary small">Modelos mensais que o Spendify cria automaticamente.</div>
+                  </div>
+                  <button id="btnNewRecurring" class="btn btn-outline-primary btn-sm">+ Nova recorrência</button>
+                </div>
+                <div class="table-responsive mt-3">
+                  <table class="table align-middle">
+                    <thead>
+                      <tr>
+                        <th>Tipo</th>
+                        <th>Nome</th>
+                        <th>Categoria</th>
+                        <th>Dia</th>
+                        <th class="text-end">Valor</th>
+                        <th class="text-end">Ações</th>
+                      </tr>
+                    </thead>
+                    <tbody id="recRows"></tbody>
+                  </table>
+                </div>
+                <div id="recEmpty" class="text-center py-5 text-secondary d-none">
+                  <div class="display-6">🔁</div>
+                  <div class="mt-2">Nenhuma recorrência cadastrada.</div>
+                  <div class="small">Crie uma recorrência para contas fixas (aluguel, internet, etc.).</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="tab-pane fade" id="tab-categorias" role="tabpanel" aria-labelledby="tab-categorias-tab">
+        <div class="row g-4 pt-3">
+          <div class="col-12 col-lg-6">
+            <div class="card shadow-sm rounded-4">
+              <div class="card-body">
+                <h6 class="mb-3">Categorias</h6>
+                <div class="text-secondary small mb-3">Lista de categorias sugeridas para acelerar seu cadastro.</div>
+                <div class="input-group mb-2">
+                  <input id="catNew" class="form-control" placeholder="Nova categoria (ex: Mercado)">
+                  <button id="catAddBtn" class="btn btn-primary">Adicionar</button>
+                </div>
+                <div class="table-responsive">
+                  <table class="table align-middle">
+                    <thead>
+                      <tr>
+                        <th>Categoria</th>
+                        <th class="text-end">Ações</th>
+                      </tr>
+                    </thead>
+                    <tbody id="catRows"></tbody>
+                  </table>
+                </div>
+                <div id="catEmpty" class="text-center py-5 text-secondary d-none">
+                  <div class="display-6">🏷️</div>
+                  <div class="mt-2">Sem categorias ainda.</div>
+                  <div class="small">Adicione as que você mais usa.</div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="col-12 col-lg-6">
+            <div class="card shadow-sm rounded-4">
+              <div class="card-body">
+                <h6 class="mb-3">Sugestões rápidas</h6>
+                <div class="d-flex flex-wrap gap-2">
+                  <button class="btn btn-sm btn-outline-secondary cat-suggest" data-cat="Mercado">Mercado</button>
+                  <button class="btn btn-sm btn-outline-secondary cat-suggest" data-cat="Transporte">Transporte</button>
+                  <button class="btn btn-sm btn-outline-secondary cat-suggest" data-cat="Aluguel">Aluguel</button>
+                  <button class="btn btn-sm btn-outline-secondary cat-suggest" data-cat="Cartão">Cartão</button>
+                  <button class="btn btn-sm btn-outline-secondary cat-suggest" data-cat="Saúde">Saúde</button>
+                  <button class="btn btn-sm btn-outline-secondary cat-suggest" data-cat="Lazer">Lazer</button>
+                  <button class="btn btn-sm btn-outline-secondary cat-suggest" data-cat="Internet">Internet</button>
+                  <button class="btn btn-sm btn-outline-secondary cat-suggest" data-cat="Educação">Educação</button>
+                </div>
+                <div class="form-text mt-2">Clique para adicionar na sua lista.</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="tab-pane fade" id="tab-config" role="tabpanel" aria-labelledby="tab-config-tab">
+        <div class="row g-4 pt-3">
+          <div class="col-12 col-lg-7">
+            <div class="card shadow-sm rounded-4">
+              <div class="card-body">
+                <h6 class="mb-3">Configurações</h6>
+                <div class="mb-3">
+                  <label class="form-label">Salário (total do mês)</label>
+                  <div class="input-group">
+                    <span class="input-group-text">R$</span>
+                    <input id="salaryMonthly2" type="number" class="form-control" min="0" step="0.01"
+                      placeholder="Ex: 4500">
+                  </div>
+                  <div class="form-text">Usado para projeções, metas e tendências.</div>
+                </div>
+                <div class="mb-3">
+                  <label class="form-label">Recebimentos automáticos</label>
+                  <div class="form-check">
+                    <input class="form-check-input" type="checkbox" id="autoIncomeEnabled2">
+                    <label class="form-check-label" for="autoIncomeEnabled2">Criar 2 recebimentos (dia 5 e dia
+                      20)</label>
+                  </div>
+                  <div class="row g-2 mt-2">
+                    <div class="col-6">
+                      <label class="form-label small mb-1">Dia 1</label>
+                      <input id="autoIncomeDay12" type="number" class="form-control" min="1" max="31">
+                    </div>
+                    <div class="col-6">
+                      <label class="form-label small mb-1">Dia 2</label>
+                      <input id="autoIncomeDay22" type="number" class="form-control" min="1" max="31">
+                    </div>
+                  </div>
+                  <div class="d-flex gap-2 mt-3">
+                    <button id="btnGenerateIncome2" class="btn btn-outline-success">Gerar recebimentos do mês</button>
+                    <button id="btnThemeToggle2" class="btn btn-outline-secondary">Alternar tema</button>
+                  </div>
+                </div>
+                <div class="alert alert-light border mt-3 mb-0">
+                  <div class="fw-semibold">Dica</div>
+                  <div class="small text-secondary">Use “Cofre compartilhado” no menu do usuário para gerenciar em
+                    casal/família.</div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="col-12 col-lg-5">
+            <div class="card shadow-sm rounded-4">
+              <div class="card-body">
+                <h6 class="mb-3">Preferências</h6>
+                <div class="form-check form-switch">
+                  <input class="form-check-input" type="checkbox" id="prefCompact">
+                  <label class="form-check-label" for="prefCompact">Modo compacto por padrão</label>
+                </div>
+                <div class="form-text">Deixa a tabela mais “justinha” (mais linhas por tela).</div>
+
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </main>
+
+  <!-- Modal: Form -->
+  <div class="modal fade" id="entryModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+      <div class="modal-content rounded-4">
+        <div class="modal-header">
+          <h5 id="entryModalTitle" class="modal-title">Novo</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
+        </div>
+        <form id="entryForm">
+          <div class="modal-body">
+            <input type="hidden" id="entryId">
+            <div class="row g-2">
+              <div class="col-6">
+                <label class="form-label">Tipo</label>
+                <select id="entryType" class="form-select" required>
+                  <option value="expense">Despesa</option>
+                  <option value="income">Recebimento</option>
+                </select>
+              </div>
+              <div class="col-6">
+                <label class="form-label">Vencimento</label>
+                <input id="entryDue" type="date" class="form-control" required>
+              </div>
+              <div class="col-12">
+                <label class="form-label">Nome</label>
+                <input id="entryName" class="form-control" placeholder="Ex: Fatura do cartão" required>
+              </div>
+              <div class="col-12">
+                <label class="form-label">Categoria</label>
+                <input id="entryCategory" class="form-control" placeholder="Ex: Cartão, Mercado, Transporte...">
+              </div>
+              <div class="col-12">
+                <label class="form-label">Valor</label>
+                <div class="input-group">
+                  <span class="input-group-text">R$</span>
+                  <input id="entryAmount" type="number" min="0" step="0.01" class="form-control" required>
+                </div>
+              </div>
+              <div class="col-12">
+                <div class="form-check">
+                  <input id="entryPaid" class="form-check-input" type="checkbox">
+                  <label class="form-check-label" for="entryPaid">Marcar como pago</label>
+                </div>
+              </div>
+              <div class="col-12">
+                <div class="form-check">
+                  <input id="entryRecurring" class="form-check-input" type="checkbox">
+                  <label class="form-check-label" for="entryRecurring">Recorrente (todo mês)</label>
+                </div>
+                <div class="form-text">Se marcado, este lançamento será criado automaticamente em todos os meses
+                  futuros.</div>
+              </div>
+              <div class="col-12">
+                <label class="form-label">Observações</label>
+                <textarea id="entryNotes" class="form-control" rows="2" placeholder="Opcional..."></textarea>
+              </div>
+            </div>
+          </div>
+          <div class="modal-footer">
+            <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
+            <button id="btnSaveEntry" type="submit" class="btn btn-primary">Salvar</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
+
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/js/bootstrap.bundle.min.js"
+    integrity="sha384-FKyoEForCGlyvwx9Hj09JcYn3nv7wiPVlz7YYwJrWVcXK/BmnVDxM+D2scQbITxI"
+    crossorigin="anonymous"></script>
+  <script src="./assets/js/app.js"></script>
+
+  <!-- Toast: Desfazer -->
+  <div class="toast-container position-fixed bottom-0 end-0 p-3" style="z-index:1100">
+    <div id="undoToast" class="toast text-bg-dark border-0" role="alert" aria-live="assertive" aria-atomic="true">
+      <div class="d-flex align-items-center">
+        <div id="undoToastMsg" class="toast-body">Ação feita.</div>
+        <button id="undoToastBtn" type="button" class="btn btn-link btn-sm text-warning me-2">Desfazer</button>
+        <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"
+          aria-label="Fechar"></button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Global App Toast -->
+  <div class="toast-container position-fixed top-0 end-0 p-3" style="z-index: 2000">
+    <div id="appToast" class="toast align-items-center border-0" role="alert" aria-live="polite" aria-atomic="true">
+      <div class="d-flex">
+        <div id="appToastBody" class="toast-body fw-semibold"></div>
+        <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"
+          aria-label="Fechar"></button>
+      </div>
+    </div>
+  </div>
+
+
+</body>
+
+</html>
