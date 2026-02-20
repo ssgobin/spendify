@@ -462,43 +462,18 @@ app.use((err, req, res, next) => {
     });
 });
 
-export const handler = serverless(app);
-
 // Netlify serverless handler
-export default async (req, res) => {
-    try {
-        // Handle CORS preflight
-        if (req.method === "OPTIONS") {
-            const origin = req.headers.origin || "*";
-            res.setHeader("Access-Control-Allow-Origin", origin);
-            res.setHeader("Vary", "Origin");
-            res.setHeader("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS");
-            res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization");
-            res.setHeader("Access-Control-Allow-Credentials", "true");
-            return res.status(200).end();
-        }
+// Middleware global de erro (opcional, mas recomendado)
+app.use((err, req, res, next) => {
+  console.error("[Express Error]", err);
+  if (res.headersSent) return next(err);
+  res.status(500).json({
+    error: "internal_server_error",
+    message: "Erro interno no servidor"
+  });
+});
 
-        return await new Promise((resolve) => {
-            app(req, res, (err) => {
-                if (err) {
-                    console.error("[Netlify Handler Error]", err);
-                    if (!res.headersSent) {
-                        res.status(500).json({
-                            error: "handler_error",
-                            message: "Erro interno no servidor"
-                        });
-                    }
-                }
-                resolve();
-            });
-        });
-    } catch (e) {
-        console.error("[Fatal Handler Error]", e);
-        if (!res.headersSent) {
-            return res.status(500).json({
-                error: "fatal_handler_error",
-                message: "Erro interno no servidor"
-            });
-        }
-    }
-};
+// ✅ Netlify handler com basePath
+export const handler = serverless(app, {
+  basePath: "/.netlify/functions/api"
+});

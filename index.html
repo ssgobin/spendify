@@ -22,9 +22,8 @@
 </head>
 
 <script>
-  // Detecta ambiente e define URL da API
-  const isDev = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
-  window.SPENDIFY_API_BASE = isDev ? "http://localhost:3001" : "/.netlify/functions/api";
+  const isDev = window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1";
+  window.SPENDIFY_API_BASE = isDev ? "http://localhost:3001" : "/api";
 </script>
 
 <body class="bg-body-tertiary">
