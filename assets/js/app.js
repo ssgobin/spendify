@@ -1787,7 +1787,26 @@ auth.onAuthStateChanged(async (user) => {
       try { await createPaymentFlow(p); } catch { }
     }
     syncConfigToUI();
-    const plan = String(state.config.plan || "none");
+    let plan = String(state.config.plan || "none");
+
+    // ✅ Verifica se o plano expirou
+    if (plan !== "none" && state.config.planStartDate) {
+      const startDate = new Date(state.config.planStartDate);
+      if (!isNaN(startDate.getTime())) {
+        const renewalDate = new Date(startDate.getTime() + 30 * 24 * 60 * 60 * 1000);
+        const now = new Date();
+        
+        // Se passou da data de renovação, plano expirou
+        if (renewalDate < now) {
+          console.log("[Auth] Plano expirado, bloqueando acesso:", { plan, renewalDate });
+          // Limpa o plano expirado
+          await fbSaveSettings({ plan: "none", planStartDate: null, updatedAt: Date.now() });
+          state.config.plan = "none";
+          state.config.planStartDate = null;
+          plan = "none";
+        }
+      }
+    }
 
     // Se não tem plano, mostra tela de pagamento pendente
     if (plan !== "basic" && plan !== "pro" && plan !== "family") {
@@ -2405,17 +2424,29 @@ async function loadPlanDetails() {
 
     // Calcula datas
     const now = new Date();
-    const startDate = planStartDate ? new Date(planStartDate) : null;
-    const renewalDate = startDate ? new Date(startDate.getTime() + 30 * 24 * 60 * 60 * 1000) : null;
+    let startDate = null;
+    let renewalDate = null;
+    
+    // Valida planStartDate antes de criar a data
+    if (planStartDate) {
+      startDate = new Date(planStartDate);
+      // Verifica se é uma data válida
+      if (isNaN(startDate.getTime())) {
+        startDate = null;
+      } else {
+        renewalDate = new Date(startDate.getTime() + 30 * 24 * 60 * 60 * 1000);
+      }
+    }
+    
     const isExpired = renewalDate && renewalDate < now;
 
     // Exibe datas de início e renovação
     if (planStartDateEl) {
-      planStartDateEl.textContent = startDate ? formatDateBRLong(startDate.toISOString().slice(0, 10)) : "—";
+      planStartDateEl.textContent = startDate && !isNaN(startDate.getTime()) ? formatDateBRLong(startDate.toISOString().slice(0, 10)) : "—";
     }
 
     if (planRenewalDateEl) {
-      planRenewalDateEl.textContent = renewalDate ? formatDateBRLong(renewalDate.toISOString().slice(0, 10)) : "—";
+      planRenewalDateEl.textContent = renewalDate && !isNaN(renewalDate.getTime()) ? formatDateBRLong(renewalDate.toISOString().slice(0, 10)) : "—";
     }
 
     // Mostra status (expirado ou ativo)
@@ -2466,6 +2497,96 @@ async function loadPlanDetails() {
           </div>
         `)
         .join("");
+    }
+
+    // Status da IA
+    const aiStatus = document.getElementById("aiStatus");
+    const aiStatusText = document.getElementById("aiStatusText");
+    const aiActiveInfo = document.getElementById("aiActiveInfo");
+    const aiInactiveActions = document.getElementById("aiInactiveActions");
+    const aiRenewalDateText = document.getElementById("aiRenewalDateText");
+    const btnContractAI = document.getElementById("btnContractAI");
+
+    // Carrega status da IA
+    let userHasAI = false;
+    let aiPurchasedAt = null;
+    let aiRenewalDateValue = null;
+    try {
+      const userDoc = await db.collection("users").doc(cur.uid).get();
+      if (userDoc.exists) {
+        const userData = userDoc.data() || {};
+        userHasAI = userData.aiPurchased === true;
+        aiPurchasedAt = userData.aiPurchasedAt || null;
+        
+        console.log("[AI Debug] Carregando IA:", { userHasAI, aiPurchasedAt, type: typeof aiPurchasedAt });
+        
+        // ✅ Calcula e valida data de renovação SEMPRE que tem IA ativa
+        if (userHasAI && aiPurchasedAt) {
+          // Converte Timestamp do Firebase para millisegundos
+          let aiTimestamp = aiPurchasedAt;
+          if (aiPurchasedAt.toMillis && typeof aiPurchasedAt.toMillis === 'function') {
+            // É um Timestamp do Firebase
+            aiTimestamp = aiPurchasedAt.toMillis();
+          } else if (aiPurchasedAt.seconds !== undefined) {
+            // É um objeto com seconds e nanoseconds
+            aiTimestamp = aiPurchasedAt.seconds * 1000 + Math.floor(aiPurchasedAt.nanoseconds / 1000000);
+          }
+          
+          const aiStart = new Date(aiTimestamp);
+          console.log("[AI Debug] Data criada:", { aiStart, isValid: !isNaN(aiStart.getTime()), aiTimestamp });
+          
+          if (!isNaN(aiStart.getTime())) {
+            const aiRenewal = new Date(aiStart.getTime() + 30 * 24 * 60 * 60 * 1000);
+            const now = new Date();
+            
+            // Se passou da data de renovação, IA expirou
+            if (aiRenewal < now) {
+              console.log("[AI] IA expirada, removendo acesso:", { aiRenewal, now });
+              // Limpa IA expirada no Firebase
+              await db.collection("users").doc(cur.uid).set(
+                { aiPurchased: false, aiPurchasedAt: null },
+                { merge: true }
+              );
+              userHasAI = false;
+              aiPurchasedAt = null;
+              aiRenewalDateValue = null;
+            } else {
+              // IA ainda está válida
+              aiRenewalDateValue = aiRenewal;
+              console.log("[AI] IA ativa, data de renovação:", { aiRenewal });
+            }
+          } else {
+            console.warn("[AI] Data de IA inválida:", aiPurchasedAt);
+          }
+        }
+      }
+    } catch (e) {
+      console.warn("Erro ao carregar status de IA:", e);
+    }
+
+    if (aiStatus && aiActiveInfo && aiInactiveActions) {
+      // ✅ Mostra como ativo se tem IA com data de renovação válida
+      if (userHasAI && aiRenewalDateValue) {
+        aiStatus.textContent = "Ativo";
+        aiStatus.className = "badge text-bg-success";
+        aiActiveInfo.classList.remove("d-none");
+        aiInactiveActions.classList.add("d-none");
+
+        if (aiRenewalDateText) {
+          aiRenewalDateText.textContent = formatDateBRLong(aiRenewalDateValue.toISOString().slice(0, 10));
+        }
+      } else {
+        aiStatus.textContent = "Não contratada";
+        aiStatus.className = "badge text-bg-secondary";
+        aiActiveInfo.classList.add("d-none");
+        aiInactiveActions.classList.remove("d-none");
+      }
+    }
+
+    if (btnContractAI) {
+      btnContractAI.onclick = async () => {
+        await createAIPaymentFlow();
+      };
     }
 
     // Wire up botões

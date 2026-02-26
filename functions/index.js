@@ -173,7 +173,7 @@ function priceForPlan(plan) {
 
 async function setUserPlan(uid, plan) {
   const ref = db.collection("users").doc(uid).collection("meta").doc("settings");
-  await ref.set({ plan, updatedAt: Date.now() }, { merge: true });
+  await ref.set({ plan, planStartDate: Date.now(), updatedAt: Date.now() }, { merge: true });
 }
 
 // ================================

@@ -255,7 +255,7 @@ app.post("/api/ai/chat", aiLimiter, verifyFirebaseToken, async (req, res) => {
 
     } catch (error) {
         console.error("[AI] Erro:", error.response?.data || error.message);
-        
+
         if (error.response?.status === 429) {
             return res.status(429).json({ error: "rate_limit", message: "Limite de uso da IA atingido. Tente novamente em alguns minutos." });
         }
@@ -275,7 +275,7 @@ function getPrice(planOrType) {
 
 async function setUserPlan(uid, plan) {
     const ref = db.collection("users").doc(uid).collection("meta").doc("settings");
-    await ref.set({ plan, updatedAt: Date.now() }, { merge: true });
+    await ref.set({ plan, planStartDate: Date.now(), updatedAt: Date.now() }, { merge: true });
 }
 
 // ================================
@@ -314,11 +314,11 @@ app.post("/api/payments/create", paymentLimiter, verifyFirebaseToken, async (req
 
         let url = "";
         const mth = String(method).toLowerCase();
-        
+
         // Gera descrição baseada no tipo (plano ou complemento)
         let desc = type ? "Assistente IA" : `Spendify ${plan}`;
         let boletoDesc = type ? "Assistente IA - Spendify" : `Spendify ${plan}`;
-        
+
         if (mth === "boleto") {
             url = process.env.PAGHIPER_BOLETO_URL;
             payload = {
@@ -371,7 +371,7 @@ app.post("/api/payments/create", paymentLimiter, verifyFirebaseToken, async (req
         console.log("[Payment] Raw Response:", JSON.stringify(data, null, 2));
 
         const createReq = data?.pix_create_request || data?.create_request || {};
-        
+
         // Verificar se o PagHiper rejeitou a transação
         if (createReq?.result === "reject") {
             const errorMessage = createReq?.response_message || "Pagamento rejeitado pela API";
@@ -381,7 +381,7 @@ app.post("/api/payments/create", paymentLimiter, verifyFirebaseToken, async (req
                 message: errorMessage
             });
         }
-        
+
         const pixCode = createReq?.pix_code || {};
 
         const pixQrImage =
@@ -454,19 +454,19 @@ app.post("/api/payments/create", paymentLimiter, verifyFirebaseToken, async (req
         const errorMsg = e.message || "Unknown error";
         const errorStatus = e.response?.status || 500;
         const responseData = e.response?.data || {};
-        
+
         console.error("[Payment] Erro:", {
             status: errorStatus,
             error: e.code,
             url: e.config?.url,
             responseData: JSON.stringify(responseData)
         });
-        
+
         // Se o erro veio do PagHiper, retornar a mensagem específica
-        const paghiperError = responseData?.pix_create_request?.response_message || 
-                             responseData?.create_request?.response_message ||
-                             responseData?.message;
-        
+        const paghiperError = responseData?.pix_create_request?.response_message ||
+            responseData?.create_request?.response_message ||
+            responseData?.message;
+
         return res.status(errorStatus >= 400 && errorStatus < 600 ? errorStatus : 500).json({
             error: "payment_creation_failed",
             message: paghiperError || "Erro ao processar pagamento"

@@ -786,11 +786,13 @@ body.dark-mode #paymentOrderId {
 }
 
 @keyframes loading {
+
   0%,
   60%,
   100% {
     opacity: 0.3;
   }
+
   30% {
     opacity: 1;
   }

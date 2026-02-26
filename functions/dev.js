@@ -86,7 +86,7 @@ app.post("/ai/chat", async (req, res) => {
 
     } catch (error) {
         console.error("[AI] Erro:", error.response?.data || error.message);
-        
+
         if (error.response?.status === 429) {
             return res.status(429).json({ error: "rate_limit", message: "Limite de uso da IA atingido. Tente novamente em alguns minutos." });
         }
@@ -119,14 +119,14 @@ function isValidCNPJ(cnpj) {
 
 async function setUserPlan(uid, plan) {
     const ref = db.collection("users").doc(uid).collection("meta").doc("settings");
-    await ref.set({ plan, updatedAt: Date.now() }, { merge: true });
+    await ref.set({ plan, planStartDate: Date.now(), updatedAt: Date.now() }, { merge: true });
 }
 
 app.post("/payments/create", async (req, res) => {
     try {
         const { uid, plan, type, method = "pix", customer = {} } = req.body || {};
         const planOrType = plan || type || "";
-        
+
         if (!uid || !planOrType) return res.status(400).json({ error: "missing_params" });
         if (plan && type) return res.status(400).json({ error: "invalid_params", message: "Envie apenas 'plan' OU 'type', não ambos" });
 
@@ -319,7 +319,7 @@ app.post("/payments/create", async (req, res) => {
 app.post("/payments/webhook", async (req, res) => {
     try {
         const body = req.body || {};
-        
+
         // Log completo do webhook recebido para debug
         console.log("[Webhook] Recebido:", {
             body: JSON.stringify(body),
@@ -328,9 +328,9 @@ app.post("/payments/webhook", async (req, res) => {
 
         const status = String(body.status || body.notification_status || "").toLowerCase();
         const orderId = String(body.order_id || body.reference || body.transaction_id || "");
-        
+
         console.log("[Webhook] Processando:", { status, orderId });
-        
+
         if (!orderId) {
             console.error("[Webhook] missing_reference");
             return res.status(400).send("missing_reference");
