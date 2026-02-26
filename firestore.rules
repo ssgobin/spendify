@@ -1,0 +1,190 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+  
+    // ================================
+    // FUNÇÕES DE SEGURANÇA
+    // ================================
+    
+    // Verifica se o usuário está autenticado
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+    
+    // Verifica se o usuário é o dono do recurso
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+    
+    // Verifica se o usuário é admin
+    function isAdmin() {
+      return isAuthenticated() && 
+             request.auth.token.admin == true;
+    }
+    
+    // Valida tamanho de string
+    function validStringSize(value, minSize, maxSize) {
+      return value is string && 
+             value.size() >= minSize && 
+             value.size() <= maxSize;
+    }
+    
+    // Valida email
+    function validEmail(email) {
+      return email is string && 
+             email.matches('^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$');
+    }
+    
+    // Valida número positivo
+    function validPositiveNumber(value) {
+      return value is number && value >= 0;
+    }
+    
+    // ================================
+    // REGRAS DE USERS
+    // ================================
+    match /users/{userId} {
+      // Leitura: apenas o próprio usuário ou admin
+      allow read: if isOwner(userId) || isAdmin();
+      
+      // Criação: apenas o próprio usuário ao se cadastrar
+      allow create: if isOwner(userId) && 
+                      validEmail(request.resource.data.email);
+      
+      // Atualização: apenas o próprio usuário
+      // Admin não pode atualizar diretamente (usa cloud functions)
+      allow update: if isOwner(userId) &&
+                      // Não pode mudar campos críticos diretamente
+                      !request.resource.data.diff(resource.data).affectedKeys()
+                        .hasAny(['uid', 'email', 'plan', 'aiPurchased']);
+      
+      // Exclusão: apenas o próprio usuário ou admin
+      allow delete: if isOwner(userId) || isAdmin();
+      
+      // ================================
+      // SUB-COLEÇÕES DE USERS
+      // ================================
+      
+      // Configurações do usuário
+      match /meta/{document=**} {
+        allow read: if isOwner(userId) || isAdmin();
+        allow write: if isOwner(userId);
+      }
+      
+      // Transações financeiras
+      match /transactions/{transactionId} {
+        allow read: if isOwner(userId) || isAdmin();
+        
+        allow create: if isOwner(userId) &&
+                        validStringSize(request.resource.data.description, 1, 200) &&
+                        validPositiveNumber(request.resource.data.value) &&
+                        request.resource.data.value <= 1000000 && // Limite de R$ 1M
+                        request.resource.data.date is timestamp;
+        
+        allow update: if isOwner(userId) &&
+                        validStringSize(request.resource.data.description, 1, 200) &&
+                        validPositiveNumber(request.resource.data.value) &&
+                        request.resource.data.value <= 1000000;
+        
+        allow delete: if isOwner(userId);
+      }
+      
+      // Categorias personalizadas
+      match /categories/{categoryId} {
+        allow read: if isOwner(userId);
+        allow write: if isOwner(userId) &&
+                       validStringSize(request.resource.data.name, 1, 50);
+      }
+    }
+    
+    // ================================
+    // REGRAS DE HOUSEHOLDS (Cofres Compartilhados)
+    // ================================
+    match /households/{householdId} {
+      // Verifica se o usuário é membro do household
+      function isMember() {
+        return isAuthenticated() && 
+               request.auth.uid in resource.data.members;
+      }
+      
+      // Verifica se é owner do household
+      function isHouseholdOwner() {
+        return isAuthenticated() && 
+               request.auth.uid == resource.data.owner;
+      }
+      
+      // Leitura: apenas membros
+      allow read: if isMember() || isAdmin();
+      
+      // Criação: qualquer usuário autenticado
+      allow create: if isAuthenticated() &&
+                      request.resource.data.owner == request.auth.uid &&
+                      request.resource.data.members.hasAll([request.auth.uid]) &&
+                      validStringSize(request.resource.data.name, 1, 100);
+      
+      // Atualização: apenas owner
+      allow update: if isHouseholdOwner() &&
+                      // Owner não pode mudar
+                      request.resource.data.owner == resource.data.owner;
+      
+      // Exclusão: apenas owner ou admin
+      allow delete: if isHouseholdOwner() || isAdmin();
+      
+      // Transações do household
+      match /transactions/{transactionId} {
+        allow read: if isMember() || isAdmin();
+        allow create: if isMember() &&
+                        validStringSize(request.resource.data.description, 1, 200) &&
+                        validPositiveNumber(request.resource.data.value) &&
+                        request.resource.data.value <= 1000000;
+        allow update: if isMember();
+        allow delete: if isMember();
+      }
+      
+      // Configurações do household
+      match /meta/{document=**} {
+        allow read: if isMember();
+        allow write: if isHouseholdOwner();
+      }
+    }
+    
+    // ================================
+    // REGRAS DE PAYMENTS (Apenas backend pode escrever)
+    // ================================
+    match /payments/{paymentId} {
+      // Usuários podem ler seus próprios pagamentos
+      allow read: if isAuthenticated() && 
+                    resource.data.uid == request.auth.uid;
+      // Apenas backend (via Admin SDK) pode criar/atualizar
+      allow write: if false;
+    }
+    
+    // ================================
+    // REGRAS DE ADMIN LOGS (Apenas admin pode ler)
+    // ================================
+    match /admin_logs/{logId} {
+      allow read: if isAdmin();
+      // Apenas backend pode escrever
+      allow write: if false;
+    }
+    
+    // ================================
+    // REGRAS DE AI USAGE LOGS (Apenas backend)
+    // ================================
+    match /ai_usage_logs/{logId} {
+      // Usuários podem ler seus próprios logs
+      allow read: if isAuthenticated() && 
+                    resource.data.uid == request.auth.uid;
+      // Apenas backend pode escrever
+      allow write: if false;
+    }
+    
+    // ================================
+    // REGRA PADRÃO: NEGAR TUDO
+    // ================================
+    // Qualquer documento não explicitamente permitido é negado
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

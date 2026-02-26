@@ -8,7 +8,11 @@
   },
   "scripts": {
     "build": "npm install",
-    "dev": "cd functions && node dev.js"
+    "dev": "cd functions && node dev.js",
+    "audit:security": "npm audit --audit-level=moderate",
+    "audit:fix": "npm audit fix",
+    "security:check": "bash security-audit.sh",
+    "security:test": "npm run audit:security && npm run security:check"
   },
   "dependencies": {
     "axios": "^1.6.7",

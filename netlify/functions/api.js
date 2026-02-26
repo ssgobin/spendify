@@ -72,29 +72,60 @@ app.use(helmet({
     contentSecurityPolicy: {
         directives: {
             defaultSrc: ["'self'"],
-            scriptSrc: ["'self'"],
-            imgSrc: ["'self'", "https:"],
-            styleSrc: ["'self'"],
+            scriptSrc: ["'self'", "'unsafe-inline'", "https://cdn.jsdelivr.net", "https://cdnjs.cloudflare.com"],
+            styleSrc: ["'self'", "'unsafe-inline'", "https://cdn.jsdelivr.net", "https://cdnjs.cloudflare.com", "https://fonts.googleapis.com"],
+            fontSrc: ["'self'", "https://fonts.gstatic.com", "https://cdnjs.cloudflare.com"],
+            imgSrc: ["'self'", "https:", "data:"],
+            connectSrc: ["'self'", "https://firestore.googleapis.com", "https://identitytoolkit.googleapis.com", "https://securetoken.googleapis.com", "https://api.groq.com"],
             frameSrc: ["'none'"],
-            baseUri: ["'self'"]
+            objectSrc: ["'none'"],
+            baseUri: ["'self'"],
+            formAction: ["'self'"],
+            upgradeInsecureRequests: process.env.NODE_ENV === 'production' ? [] : null
         }
     },
     referrerPolicy: { policy: "strict-origin-when-cross-origin" },
     hsts: { maxAge: 31536000, includeSubDomains: true, preload: true },
     noSniff: true,
     xssFilter: true,
-    frameguard: { action: "deny" }
+    frameguard: { action: "deny" },
+    hidePoweredBy: true,
+    permittedCrossDomainPolicies: { permittedPolicies: "none" }
 }));
+
+// Adicionar headers de segurança adicionais
+app.use((req, res, next) => {
+    res.setHeader('X-Content-Type-Options', 'nosniff');
+    res.setHeader('X-Frame-Options', 'DENY');
+    res.setHeader('X-XSS-Protection', '1; mode=block');
+    res.setHeader('Permissions-Policy', 'geolocation=(), microphone=(), camera=()');
+    next();
+});
 
 // ================================
 // SECURITY: CORS Restritivo
 // ================================
-const ALLOWED_ORIGINS = (process.env.ALLOWED_ORIGINS || "https://your-domain.com").split(",");
+const ALLOWED_ORIGINS = (process.env.ALLOWED_ORIGINS || "https://your-domain.com").split(",").map(o => o.trim());
+const isDevelopment = process.env.NODE_ENV === 'development';
+
 app.use(cors({
     origin: function (origin, callback) {
-        if (!origin || ALLOWED_ORIGINS.includes(origin)) {
+        // Em desenvolvimento, permite localhost
+        if (isDevelopment && (!origin || origin.includes('localhost') || origin.includes('127.0.0.1'))) {
+            callback(null, true);
+            return;
+        }
+        
+        // Em produção, requer origem e valida contra whitelist
+        if (!origin) {
+            callback(new Error("No origin header - CORS blocked"));
+            return;
+        }
+        
+        if (ALLOWED_ORIGINS.includes(origin)) {
             callback(null, true);
         } else {
+            console.warn('[CORS] Origem bloqueada:', origin);
             callback(new Error("Not allowed by CORS"));
         }
     },
@@ -108,33 +139,78 @@ app.use(cors({
 // SECURITY: Rate Limiting
 // ================================
 const apiLimiter = rateLimit({
-    windowMs: 15 * 60 * 1000,
-    max: 100,
+    windowMs: parseInt(process.env.RATE_LIMIT_WINDOW_MS) || 15 * 60 * 1000,
+    max: parseInt(process.env.RATE_LIMIT_MAX_REQUESTS) || 100,
     message: "Muitas requisições. Tente novamente mais tarde.",
     standardHeaders: true,
     legacyHeaders: false,
     skip: (req) => req.path === "/health",
+    handler: (req, res) => {
+        console.warn('[Rate Limit] Limite excedido:', {
+            ip: req.ip,
+            path: req.path,
+            userAgent: req.headers['user-agent']
+        });
+        res.status(429).json({
+            error: 'rate_limit_exceeded',
+            message: 'Muitas requisições. Tente novamente mais tarde.',
+            retryAfter: Math.ceil(15 * 60)
+        });
+    }
 });
 
 const aiLimiter = rateLimit({
     windowMs: 60 * 1000, // 1 minuto
-    max: 20, // 20 mensagens por minuto
+    max: parseInt(process.env.AI_RATE_LIMIT_MAX) || 20, // 20 mensagens por minuto
     message: "Muitas mensagens para a IA. Aguarde um momento.",
     standardHeaders: true,
     legacyHeaders: false,
+    handler: (req, res) => {
+        console.warn('[AI Rate Limit] Limite excedido:', {
+            ip: req.ip,
+            uid: req.user?.uid
+        });
+        res.status(429).json({
+            error: 'ai_rate_limit_exceeded',
+            message: 'Muitas mensagens para a IA. Aguarde um momento.',
+            retryAfter: 60
+        });
+    }
 });
 
 const paymentLimiter = rateLimit({
     windowMs: 60 * 60 * 1000,
-    max: 10,
+    max: parseInt(process.env.PAYMENT_RATE_LIMIT_MAX) || 10,
     skipSuccessfulRequests: false,
-    message: "Limite de requisições de pagamento excedido"
+    message: "Limite de requisições de pagamento excedido",
+    handler: (req, res) => {
+        console.warn('[Payment Rate Limit] Limite excedido:', {
+            ip: req.ip,
+            uid: req.body?.uid
+        });
+        res.status(429).json({
+            error: 'payment_rate_limit_exceeded',
+            message: 'Limite de requisições de pagamento excedido',
+            retryAfter: 3600
+        });
+    }
 });
 
 const adminLimiter = rateLimit({
     windowMs: 15 * 60 * 1000,
     max: 30,
-    skipSuccessfulRequests: false
+    skipSuccessfulRequests: false,
+    handler: (req, res) => {
+        console.warn('[Admin Rate Limit] Limite excedido:', {
+            ip: req.ip,
+            uid: req.user?.uid
+        });
+        res.status(429).json({
+            error: 'admin_rate_limit_exceeded',
+            message: 'Limite de requisições administrativas excedido',
+            retryAfter: 900
+        });
+    }
 });
 
 app.use("/api/payments", apiLimiter);
@@ -147,16 +223,34 @@ app.use(express.urlencoded({ extended: true, limit: "10kb" }));
 // SECURITY: Validação de Schemas
 // ================================
 const paymentSchema = Joi.object({
-    uid: Joi.string().required().pattern(/^[a-zA-Z0-9]{20,}$/),
-    plan: Joi.string().valid("basic", "pro", "family"),
-    type: Joi.string().valid("ai"),
-    method: Joi.string().valid("pix", "boleto").default("pix"),
+    uid: Joi.string().required().pattern(/^[a-zA-Z0-9]{20,}$/).trim(),
+    plan: Joi.string().valid("basic", "pro", "family").lowercase(),
+    type: Joi.string().valid("ai").lowercase(),
+    method: Joi.string().valid("pix", "boleto").default("pix").lowercase(),
     customer: Joi.object({
-        email: Joi.string().email().required(),
-        name: Joi.string().required().max(100),
-        document: Joi.string().pattern(/^\d{11,14}$/).required()
+        email: Joi.string().email().required().max(100).lowercase().trim(),
+        name: Joi.string().required().min(3).max(100).trim(),
+        document: Joi.string().pattern(/^\d{11,14}$/).required().trim()
     }).required()
-}).xor("plan", "type").required();
+}).xor("plan", "type").required().options({ stripUnknown: true });
+
+const adminSchema = Joi.object({
+    uid: Joi.string().required().pattern(/^[a-zA-Z0-9]{20,}$/).trim(),
+    plan: Joi.string().valid("basic", "pro", "family").required().lowercase(),
+    adminKey: Joi.string().required().min(32).max(128)
+}).options({ stripUnknown: true });
+
+// Schema para mensagens de IA
+const aiMessageSchema = Joi.object({
+    role: Joi.string().valid("user", "assistant", "system").required(),
+    content: Joi.string().required().min(1).max(4000).trim()
+}).options({ stripUnknown: true });
+
+const aiChatSchema = Joi.object({
+    messages: Joi.array().items(aiMessageSchema).min(1).max(50).required(),
+    model: Joi.string().valid("llama-3.3-70b-versatile", "llama-3.1-70b-versatile").optional(),
+    uid: Joi.string().pattern(/^[a-zA-Z0-9]{20,}$/).optional() // Para dev.js
+}).options({ stripUnknown: true });
 
 // ================================
 // SECURITY: Middleware de Autenticação
