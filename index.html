@@ -1,0 +1,1532 @@
+<!doctype html>
+<html lang="pt-BR">
+
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Spendify</title>
+  <meta name="theme-color" content="#0d6efd" />
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <link rel="apple-touch-icon" sizes="180x180" href="./assets/img/logo-icon.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="./assets/img/logo-icon.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="./assets/img/logo-icon.png">
+  <link rel="manifest" href="./assets/img/site.webmanifest">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+  <link href="./assets/css/styles.css" rel="stylesheet">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Montserrat:ital,wght@0,100..900;1,100..900&display=swap"
+    rel="stylesheet">
+</head>
+
+<script>
+  const isDev = window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1";
+  window.SPENDIFY_API_BASE = isDev ? "http://localhost:3001" : "/api";
+</script>
+
+<body class="bg-body-tertiary">
+  <nav id="mainNavbar" class="navbar navbar-expand-lg navbar-dark bg-dark sticky-top">
+    <div class="container">
+      <a class="navbar-brand" href="#">
+        <img src="./assets/img/logo-icon.png" alt="Spendify Logo" class="img-fluid"
+          style="max-height: 50px; height: auto; object-fit: contain;">
+      </a>
+
+      <!-- Quando LOGADO -->
+      <div id="navAuthed" class="ms-auto d-none">
+        <div class="d-flex align-items-center gap-2">
+          <div class="dropdown">
+            <button class="btn btn-outline-light btn-sm d-flex align-items-center gap-2 user-menu"
+              data-bs-toggle="dropdown" aria-expanded="false" id="userMenuBtn" type="button">
+              <img id="userAvatar" class="avatar" alt="Avatar" />
+              <span id="userChip" class="user-name">...</span>
+              <span class="chev">▾</span>
+            </button>
+
+            <ul class="dropdown-menu dropdown-menu-end shadow-sm rounded-4 p-2" aria-labelledby="userMenuBtn">
+              <li class="px-2 pt-1 pb-2">
+                <div class="small text-secondary">Conta</div>
+                <div id="userEmail" class="fw-semibold small text-truncate"></div>
+              </li>
+              <li>
+                <hr class="dropdown-divider my-2">
+              </li>
+
+              <li>
+                <button id="btnProfile" class="dropdown-item rounded-3" type="button">
+                  Perfil
+                </button>
+              </li>
+              <li>
+                <button id="btnPlans" class="dropdown-item rounded-3" type="button">
+                  Gerenciar plano
+                </button>
+              </li>
+
+              <li>
+                <button style="display: none;" id="btnThemeToggle" class="dropdown-item rounded-3" type="button">
+                  Alternar tema (claro/escuro)
+                </button>
+              </li>
+
+              <li>
+                <button id="btnHousehold" class="dropdown-item rounded-3" type="button">
+                  Cofre compartilhado
+                </button>
+              </li>
+              <li>
+                <button id="btnLeaveHousehold" class="dropdown-item rounded-3 text-danger" type="button">
+                  Sair do cofre
+                </button>
+              </li>
+
+              <li>
+                <hr class="dropdown-divider my-2">
+              </li>
+
+              <li>
+                <button id="btnAI" class="dropdown-item rounded-3" type="button">
+                  <i class="fas fa-brain" style="margin-right: 0.5rem;"></i> Contratar IA
+                </button>
+              </li>
+
+              <li>
+                <hr class="dropdown-divider my-2">
+              </li>
+
+              <li>
+                <button id="btnLogout" class="dropdown-item rounded-3 text-warning" type="button">
+                  Sair
+                </button>
+              </li>
+            </ul>
+          </div>
+
+          <span id="scopeLabel" class="badge text-bg-light me-2 align-self-center d-none d-md-inline">Pessoal</span>
+          <button id="btnLogoutHidden" class="btn btn-outline-warning btn-sm" style="display: none;">Sair</button>
+        </div>
+      </div>
+    </div>
+  </nav>
+
+  <!-- HOME (página principal pública) -->
+  <main id="homeView" class="container-fluid d-none"
+    style="background: linear-gradient(135deg, #ffffff 0%, #f5f7fa 50%, #f0f2f5 100%); min-height: 100vh; position: relative; overflow: hidden;">
+    <!-- Background decorativo -->
+    <div
+      style="position: absolute; top: 0; right: 0; width: 400px; height: 400px; background: rgba(100, 120, 150, 0.08); border-radius: 50%; filter: blur(40px);">
+    </div>
+    <div
+      style="position: absolute; bottom: -100px; left: -100px; width: 300px; height: 300px; background: rgba(100, 120, 150, 0.05); border-radius: 50%; filter: blur(40px);">
+    </div>
+
+    <div class="container py-5" style="position: relative; z-index: 1;">
+      <!-- Hero Section -->
+      <div class="row justify-content-center mb-5">
+        <div class="col-12 col-lg-9 text-center" style="color: #1a1a1a;">
+          <div style="margin-bottom: 2rem;">
+            <img src="./assets/img/logo.png" alt="Spendify" class="img-fluid"
+              style="max-height: 120px; max-width: 100%; height: auto;">
+          </div>
+          <h1 class="fw-bold"
+            style="font-size: clamp(2rem, 5vw, 3.5rem); line-height: 1.2; margin-bottom: 1rem; color: #1a1a1a;">Controle
+            seu dinheiro com confiança</h1>
+          <p class="lead"
+            style="font-size: 1.1rem; margin-bottom: 2rem; color: #555; max-width: 600px; margin-left: auto; margin-right: auto;">
+            Organize gastos, alcance metas e tenha clareza total do seu dinheiro em um só lugar. Simples, poderoso e
+            para todos.</p>
+          <div class="d-flex flex-wrap gap-3 justify-content-center mb-5">
+            <button id="btnOpenLogin" class="btn btn-dark btn-lg fw-bold"
+              style="padding: 0.75rem 2rem; border-radius: 50px;">Começar Agora</button>
+            <a href="#pricingSection" class="btn btn-outline-dark btn-lg fw-bold"
+              style="padding: 0.75rem 2rem; border-radius: 50px;">Ver Planos</a>
+          </div>
+        </div>
+      </div>
+
+      <!-- Features Section -->
+      <div class="row g-4 mb-5">
+        <div class="col-12 col-md-4">
+          <div class="feature-card"
+            style="background: white; padding: 2rem; border-radius: 1rem; border: 1px solid #e8eaed; box-shadow: 0 2px 8px rgba(0,0,0,0.06); transition: all 0.3s ease; color: #1a1a1a;">
+            <div style="font-size: 2.5rem; margin-bottom: 1rem; color: #2c3e50;"><i class="fas fa-chart-line"></i></div>
+            <div class="fw-bold mb-2" style="font-size: 1.1rem;">Visualize seu dinheiro</div>
+            <div style="color: #666; font-size: 0.95rem;">Veja para onde vai cada real e identifique gastos
+              desnecessários.</div>
+          </div>
+        </div>
+        <div class="col-12 col-md-4">
+          <div class="feature-card"
+            style="background: white; padding: 2rem; border-radius: 1rem; border: 1px solid #e8eaed; box-shadow: 0 2px 8px rgba(0,0,0,0.06); transition: all 0.3s ease; color: #1a1a1a;">
+            <div style="font-size: 2.5rem; margin-bottom: 1rem; color: #2c3e50;"><i class="fas fa-bolt"></i></div>
+            <div class="fw-bold mb-2" style="font-size: 1.1rem;">Fácil e rápido</div>
+            <div style="color: #666; font-size: 0.95rem;">Registre uma despesa em segundos. Sem planilhas, sem
+              complicação.</div>
+          </div>
+        </div>
+        <div class="col-12 col-md-4">
+          <div class="feature-card"
+            style="background: white; padding: 2rem; border-radius: 1rem; border: 1px solid #e8eaed; box-shadow: 0 2px 8px rgba(0,0,0,0.06); transition: all 0.3s ease; color: #1a1a1a;">
+            <div style="font-size: 2.5rem; margin-bottom: 1rem; color: #2c3e50;"><i class="fas fa-bullseye"></i></div>
+            <div class="fw-bold mb-2" style="font-size: 1.1rem;">Alcance suas metas</div>
+            <div style="color: #666; font-size: 0.95rem;">Defina objetivos, acompanhe progresso e economize com
+              propósito.</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Pricing Section -->
+    <div class="container mt-5 pt-5" style="position: relative; z-index: 1;">
+      <div id="pricingSection" class="mt-5">
+        <div class="row justify-content-center mb-5">
+          <div class="col-12 text-center" style="color: #1a1a1a;">
+            <h2 class="fw-bold mb-2" style="font-size: 2.5rem;">Escolha seu plano</h2>
+            <p class="lead mb-0" style="color: #666;">Comece grátis, upgrade quando quiser.</p>
+          </div>
+        </div>
+
+        <div class="row g-4">
+          <div class="col-12 col-lg-4">
+            <div class="plan-card-new"
+              style="background: white; border-radius: 1.25rem; padding: 2.5rem; height: 100%; display: flex; flex-direction: column; box-shadow: 0 4px 12px rgba(0,0,0,0.08); transition: transform 0.3s ease, box-shadow 0.3s ease; border: 1px solid #e8eaed;">
+              <div class="mb-3">
+                <div class="plan-title-new fw-bold" style="font-size: 1.5rem; margin-bottom: 0.5rem; color: #1a1a1a;">
+                  Basic</div>
+                <div class="plan-price-new"
+                  style="font-size: 2rem; font-weight: bold; color: #666; margin-bottom: 0.25rem;">R$ 10,90<span
+                    style="font-size: 0.9rem; color: #999;">/mês</span></div>
+                <div style="font-size: 0.85rem; color: #999;">Pessoal</div>
+              </div>
+              <ul style="list-style: none; padding: 0; margin: 1.5rem 0; flex-grow: 1;">
+                <li style="padding: 0.75rem 0; border-bottom: 1px solid #f0f0f0; color: #555;"><i class="fas fa-check"
+                    style="color: #27ae60; margin-right: 0.5rem;"></i> 1 usuário</li>
+                <li style="padding: 0.75rem 0; border-bottom: 1px solid #f0f0f0; color: #555;"><i class="fas fa-check"
+                    style="color: #27ae60; margin-right: 0.5rem;"></i> Lançamentos ilimitados</li>
+                <li style="padding: 0.75rem 0; border-bottom: 1px solid #f0f0f0; color: #555;"><i class="fas fa-check"
+                    style="color: #27ae60; margin-right: 0.5rem;"></i> Filtros avançados</li>
+                <li style="padding: 0.75rem 0; color: #555;"><i class="fas fa-check"
+                    style="color: #27ae60; margin-right: 0.5rem;"></i> Gráficos básicos</li>
+              </ul>
+              <button id="btnUpgradeBasic" class="btn btn-outline-dark btn-lg w-100 fw-bold"
+                style="border-radius: 0.75rem;">Assinar Basic</button>
+            </div>
+          </div>
+
+          <div class="col-12 col-lg-4">
+            <div class="plan-card-new featured-new"
+              style="background: #2c3e50; color: white; border-radius: 1.25rem; padding: 2.5rem; height: 100%; display: flex; flex-direction: column; box-shadow: 0 8px 24px rgba(0,0,0,0.12); position: relative; transform: scale(1.05); transition: transform 0.3s ease, box-shadow 0.3s ease; border: 1px solid #34495e;">
+              <div
+                style="position: absolute; top: -15px; left: 50%; transform: translateX(-50%); background: #f39c12; color: white; padding: 0.5rem 1.5rem; border-radius: 50px; font-size: 0.875rem; font-weight: bold;">
+                ⭐ Mais Popular</div>
+              <div class="mb-3" style="margin-top: 1rem;">
+                <div class="plan-title-new fw-bold" style="font-size: 1.5rem; margin-bottom: 0.5rem;">Pro</div>
+                <div class="plan-price-new" style="font-size: 2rem; font-weight: bold; margin-bottom: 0.25rem;">R$
+                  15,90<span style="font-size: 0.9rem; opacity: 0.9;">/mês</span></div>
+                <div style="font-size: 0.85rem; opacity: 0.9;">Completo</div>
+              </div>
+              <ul style="list-style: none; padding: 0; margin: 1.5rem 0; flex-grow: 1;">
+                <li style="padding: 0.75rem 0; border-bottom: 1px solid rgba(255,255,255,0.1);"><i class="fas fa-check"
+                    style="margin-right: 0.5rem;"></i> Recorrências ilimitadas</li>
+                <li style="padding: 0.75rem 0; border-bottom: 1px solid rgba(255,255,255,0.1);"><i class="fas fa-check"
+                    style="margin-right: 0.5rem;"></i> Metas com progresso</li>
+                <li style="padding: 0.75rem 0; border-bottom: 1px solid rgba(255,255,255,0.1);"><i class="fas fa-check"
+                    style="margin-right: 0.5rem;"></i> Projeções de despesas</li>
+                <li style="padding: 0.75rem 0;"><i class="fas fa-check" style="margin-right: 0.5rem;"></i> Comparativo
+                  de meses</li>
+              </ul>
+              <button id="btnUpgradePro" class="btn btn-light btn-lg w-100 fw-bold"
+                style="border-radius: 0.75rem; color: #2c3e50;">Assinar Pro</button>
+            </div>
+          </div>
+
+          <div class="col-12 col-lg-4">
+            <div class="plan-card-new"
+              style="background: white; border-radius: 1.25rem; padding: 2.5rem; height: 100%; display: flex; flex-direction: column; box-shadow: 0 4px 12px rgba(0,0,0,0.08); transition: transform 0.3s ease, box-shadow 0.3s ease; border: 1px solid #e8eaed;">
+              <div class="mb-3">
+                <div class="plan-title-new fw-bold" style="font-size: 1.5rem; margin-bottom: 0.5rem; color: #1a1a1a;">
+                  Family</div>
+                <div class="plan-price-new"
+                  style="font-size: 2rem; font-weight: bold; color: #666; margin-bottom: 0.25rem;">R$ 25,90<span
+                    style="font-size: 0.9rem; color: #999;">/mês</span></div>
+                <div style="font-size: 0.85rem; color: #999;">Compartilhado</div>
+              </div>
+              <ul style="list-style: none; padding: 0; margin: 1.5rem 0; flex-grow: 1;">
+                <li style="padding: 0.75rem 0; border-bottom: 1px solid #f0f0f0; color: #555;"><i class="fas fa-check"
+                    style="color: #27ae60; margin-right: 0.5rem;"></i> Tudo do Pro +</li>
+                <li style="padding: 0.75rem 0; border-bottom: 1px solid #f0f0f0; color: #555;"><i class="fas fa-check"
+                    style="color: #27ae60; margin-right: 0.5rem;"></i> Cofre compartilhado</li>
+                <li style="padding: 0.75rem 0; border-bottom: 1px solid #f0f0f0; color: #555;"><i class="fas fa-check"
+                    style="color: #27ae60; margin-right: 0.5rem;"></i> Papéis (owner/member)</li>
+                <li style="padding: 0.75rem 0; color: #555;"><i class="fas fa-check"
+                    style="color: #27ae60; margin-right: 0.5rem;"></i> Histórico de alterações</li>
+              </ul>
+              <button id="btnUpgradeFamily" class="btn btn-outline-dark btn-lg w-100 fw-bold"
+                style="border-radius: 0.75rem;">Assinar Family</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="row mt-5">
+          <div class="col-12 text-center" style="color: #666;">
+
+          </div>
+        </div>
+      </div>
+    </div>
+  </main>
+  <!-- LOGIN (mostra quando DESLOGADO) -->
+  <main id="authView" class="container my-5">
+    <div class="row justify-content-center">
+      <div class="col-12 col-md-7 col-lg-5">
+        <div class="card shadow-sm rounded-4">
+          <div class="card-body p-4">
+            <h4 class="fw-bold mb-1">Entrar</h4>
+            <div class="text-secondary mb-4">Acesse com Google ou com email e senha.</div>
+
+            <div class="d-grid gap-2">
+              <button id="btnGoogle" class="btn btn-dark btn-lg rounded-3">
+                <span class="me-2">🔐</span> Entrar com Google
+              </button>
+            </div>
+
+            <div class="d-flex align-items-center gap-2 my-3">
+              <div class="flex-grow-1 border-top"></div>
+              <div class="text-secondary small">ou</div>
+              <div class="flex-grow-1 border-top"></div>
+            </div>
+
+            <form id="emailLoginForm" class="vstack gap-2">
+              <div>
+                <label class="form-label">Email</label>
+                <input id="loginEmail" type="email" class="form-control form-control-lg rounded-3"
+                  placeholder="seuemail@exemplo.com" required>
+              </div>
+              <div>
+                <label class="form-label">Senha</label>
+                <input id="loginPassword" type="password" class="form-control form-control-lg rounded-3"
+                  placeholder="••••••••" required>
+              </div>
+
+              <div class="d-grid gap-2 mt-2">
+                <button id="btnEmailLogin" type="submit" class="btn btn-primary btn-lg rounded-3">
+                  Entrar com Email
+                </button>
+                <button id="btnEmailSignup" type="button" class="btn btn-outline-primary btn-lg rounded-3">
+                  Criar conta com Email
+                </button>
+              </div>
+
+              <div id="authMsg" class="small mt-2 text-danger d-none"></div>
+            </form>
+          </div>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <!-- GERENCIAR PLANO (mostra quando clica em Gerenciar plano) -->
+  <main id="planManageView" class="container my-4 d-none">
+    <div class="row justify-content-center">
+      <div class="col-12 col-lg-8">
+        <button id="btnBackFromPlans" class="btn btn-outline-secondary btn-sm mb-3">
+          ← Voltar ao Painel
+        </button>
+
+        <div class="card shadow-sm rounded-4 mb-4">
+          <div class="card-body p-5">
+            <div class="d-flex justify-content-between align-items-start mb-4">
+              <div>
+                <h4 class="fw-bold mb-1">Meu Plano</h4>
+                <div class="text-secondary small">Informações sobre sua assinatura</div>
+              </div>
+              <span id="planStatus" class="badge text-bg-primary">Ativo</span>
+            </div>
+
+            <!-- Card Principal do Plano -->
+            <div class="alert alert-info rounded-4 p-4 mb-4" role="alert">
+              <div class="row align-items-center">
+                <div class="col-12 col-md-6">
+                  <div class="d-flex justify-content-between align-items-center mb-3">
+                    <div>
+                      <div class="text-secondary small">Plano Atual</div>
+                      <div class="display-6 fw-bold" id="planName">Pro</div>
+                    </div>
+                    <div style="font-size: 3rem; opacity: 0.3;" id="planIcon">⭐</div>
+                  </div>
+                </div>
+                <div class="col-12 col-md-6">
+                  <div class="text-end">
+                    <div class="text-secondary small">Valor</div>
+                    <div class="display-6 fw-bold text-primary" id="planPrice">R$ 19,90</div>
+                    <div class="small text-secondary">/mês</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Informações de Renovação -->
+            <div class="row g-3 mb-4">
+              <div class="col-12 col-md-6">
+                <div class="card bg-light border-0">
+                  <div class="card-body">
+                    <div class="text-secondary small mb-2">Data de Contratos</div>
+                    <div class="fw-bold text-dark" id="planStartDate">—</div>
+                  </div>
+                </div>
+              </div>
+              <div class="col-12 col-md-6">
+                <div class="card bg-light border-0">
+                  <div class="card-body">
+                    <div class="text-secondary small mb-2">Próxima Renovação</div>
+                    <div class="fw-bold text-dark" id="planRenewalDate">—</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Status de Expiração -->
+            <div id="planExpiredAlert" class="alert alert-danger rounded-4 mb-4 d-none" role="alert">
+              <div class="d-flex align-items-start gap-3">
+                <div style="font-size: 2rem;">⏰</div>
+                <div>
+                  <h6 class="fw-bold mb-1">Plano Expirado</h6>
+                  <p class="mb-2 small">Sua assinatura venceu em <strong id="planExpiredDate">—</strong>. Para continuar
+                    aproveitando todos os recursos do Spendify, renove agora.</p>
+                  <button id="btnRenewPlan" class="btn btn-danger btn-sm">Renovar Plano</button>
+                </div>
+              </div>
+            </div>
+
+            <!-- Status de Ativo -->
+            <div id="planActiveAlert" class="alert alert-success rounded-4 mb-4 d-none" role="alert">
+              <div class="d-flex align-items-start gap-3">
+                <div style="font-size: 2rem;">✅</div>
+                <div>
+                  <h6 class="fw-bold mb-1">Plano Ativo</h6>
+                  <p class="small mb-0">Você está aproveitando todos os recursos do Spendify. Sua renovação acontecerá
+                    automaticamente em <strong id="planAutoRenewalDate">—</strong>.</p>
+                </div>
+              </div>
+            </div>
+
+            <!-- Recursos Inclusos -->
+            <div class="mb-4">
+              <h6 class="fw-bold mb-3">Recursos Inclusos</h6>
+              <div id="planFeatures" class="row g-2">
+                <!-- Preenchido dinamicamente -->
+              </div>
+            </div>
+
+            <!-- Ações -->
+            <div class="d-grid gap-2 d-md-flex gap-md-2 justify-content-md-end">
+              <button id="btnChangePlan" class="btn btn-outline-primary">Alterar para outro plano</button>
+              <button id="btnCancelPlan" class="btn btn-outline-danger">Cancelar assinatura</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Histórico de Pagamentos -->
+        <div class="card shadow-sm rounded-4">
+          <div class="card-body">
+            <h6 class="fw-bold mb-3">Histórico de Pagamentos</h6>
+            <div id="paymentHistory" class="table-responsive">
+              <table class="table table-sm align-middle">
+                <thead>
+                  <tr>
+                    <th>Data</th>
+                    <th>Plano</th>
+                    <th>Valor</th>
+                    <th>Status</th>
+                  </tr>
+                </thead>
+                <tbody id="paymentHistoryRows">
+                  <!-- Preenchido dinamicamente -->
+                </tbody>
+              </table>
+            </div>
+            <div id="paymentHistoryEmpty" class="text-center py-4 text-secondary d-none">
+              <div style="font-size: 2rem;">📋</div>
+              <div class="mt-2 small">Nenhum pagamento ainda.</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <!-- APP (mostra quando LOGADO) -->
+  <main id="appView" class="container my-4 d-none">
+    <div class="d-flex align-items-center justify-content-between mb-3">
+      <div>
+        <h4 class="mb-0">Painel Financeiro</h4>
+        <div class="text-secondary small">Organize, analise e compare seus meses</div>
+      </div>
+      <div class="d-flex gap-2 align-items-end">
+        <div class="d-flex gap-2">
+          <input id="monthPicker" type="month" class="form-control" />
+          <button id="btnToday" class="btn btn-outline-secondary">Hoje</button>
+        </div>
+        <button id="btnAddExpense" class="btn btn-outline-primary">+ Nova Despesa</button>
+        <button id="btnAddIncome" class="btn btn-outline-success">+ Novo Recebimento</button>
+      </div>
+    </div>
+    <ul class="nav nav-tabs" id="mainTabs" role="tablist">
+      <li class="nav-item" role="presentation">
+        <button class="nav-link active" id="tab-visao-tab" data-bs-toggle="tab" data-bs-target="#tab-visao"
+          type="button" role="tab" aria-controls="tab-visao" aria-selected="true">Visão</button>
+      </li>
+      <li class="nav-item" role="presentation">
+        <button class="nav-link" id="tab-graficos-tab" data-bs-toggle="tab" data-bs-target="#tab-graficos" type="button"
+          role="tab" aria-controls="tab-graficos" aria-selected="false">Gráficos</button>
+      </li>
+      <li class="nav-item" role="presentation">
+        <button class="nav-link" id="tab-proj-tab" data-bs-toggle="tab" data-bs-target="#tab-proj" type="button"
+          role="tab" aria-controls="tab-proj" aria-selected="false">Projeções</button>
+      </li>
+      <li class="nav-item" role="presentation">
+        <button class="nav-link" id="tab-metas-tab" data-bs-toggle="tab" data-bs-target="#tab-metas" type="button"
+          role="tab" aria-controls="tab-metas" aria-selected="false">Metas</button>
+      </li>
+      <li class="nav-item" role="presentation">
+        <button class="nav-link" id="tab-periodo-tab" data-bs-toggle="tab" data-bs-target="#tab-periodo" type="button"
+          role="tab" aria-controls="tab-periodo" aria-selected="false">Análise por Período</button>
+      </li>
+      <li class="nav-item" role="presentation">
+        <button class="nav-link" id="tab-compare-tab" data-bs-toggle="tab" data-bs-target="#tab-compare" type="button"
+          role="tab" aria-controls="tab-compare" aria-selected="false">Comparativo de Meses</button>
+      </li>
+
+      <li class="nav-item" role="presentation">
+        <button class="nav-link" id="tab-recorrencias-tab" data-bs-toggle="tab" data-bs-target="#tab-recorrencias"
+          type="button" role="tab" aria-controls="tab-recorrencias" aria-selected="false">Recorrências</button>
+      </li>
+      <li class="nav-item" role="presentation" id="tab-cofres-nav" style="display: none;">
+        <button class="nav-link" id="tab-cofres-tab" data-bs-toggle="tab" data-bs-target="#tab-cofres" type="button"
+          role="tab" aria-controls="tab-cofres" aria-selected="false">Meus Cofres</button>
+      </li>
+      <li class="nav-item" role="presentation">
+        <button class="nav-link" id="tab-categorias-tab" data-bs-toggle="tab" data-bs-target="#tab-categorias"
+          type="button" role="tab" aria-controls="tab-categorias" aria-selected="false">Categorias</button>
+      </li>
+      <li class="nav-item" role="presentation">
+        <button class="nav-link" id="tab-ia-tab" data-bs-toggle="tab" data-bs-target="#tab-ia" type="button"
+          role="tab" aria-controls="tab-ia" aria-selected="false"><i class="fas fa-brain" style="margin-right: 0.3rem;"></i> IA</button>
+      </li>
+      <li class="nav-item" role="presentation" style="display: none;">
+        <button class="nav-link" id="tab-config-tab" data-bs-toggle="tab" data-bs-target="#tab-config" type="button"
+          role="tab" aria-controls="tab-config" aria-selected="false">Configurações</button>
+      </li>
+    </ul>
+    <div class="tab-content">
+      <div class="tab-pane fade show active pt-3" id="tab-visao" role="tabpanel" aria-labelledby="tab-visao-tab">
+        <div class="row g-3">
+          <div class="col-12 col-lg-4">
+            <div class="card shadow-sm rounded-4">
+              <div class="card-body">
+                <div style="display: none;">
+                  <div class="d-flex align-items-center justify-content-between mb-2">
+                    <h5 class="card-title mb-0">Configuração</h5>
+                    <span class="badge text-bg-secondary">Firebase</span>
+                  </div>
+                  <div class="mb-3">
+                    <label class="form-label">Salário (total do mês)</label>
+                    <div class="input-group">
+                      <span class="input-group-text">R$</span>
+                      <input id="salaryMonthly" type="number" class="form-control" min="0" step="0.01"
+                        placeholder="Ex: 2100">
+                    </div>
+                    <div class="form-text">Isso serve para gerar parcelas automáticas e para metas/indicadores.</div>
+                  </div>
+                  <div class="mb-3">
+                    <label class="form-label">Recebimentos automáticos</label>
+                    <div class="form-check">
+                      <input class="form-check-input" type="checkbox" id="autoIncomeEnabled" checked>
+                      <label class="form-check-label" for="autoIncomeEnabled">Criar 2 recebimentos (dia 5 e dia
+                        20)</label>
+                    </div>
+                    <div class="row g-2 mt-2">
+                      <div class="col-6">
+                        <label class="form-label small mb-1">Dia 1</label>
+                        <input id="autoIncomeDay1" type="number" class="form-control" min="1" max="31" value="5">
+                      </div>
+                      <div class="col-6">
+                        <label class="form-label small mb-1">Dia 2</label>
+                        <input id="autoIncomeDay2" type="number" class="form-control" min="1" max="31" value="20">
+                      </div>
+                    </div>
+                    <div class="form-text">Dividimos o salário em 2 (50/50). Você pode ajustar depois nos recebimentos.
+                    </div>
+                  </div>
+                </div>
+                <h6 class="mb-3">Resumo</h6>
+                <div class="row g-2">
+                  <div class="col-6">
+                    <div class="stat p-3 rounded-4 bg-success-subtle">
+                      <div class="label">Receitas</div>
+                      <div id="sumIncome" class="value">R$ 0,00</div>
+                      <div id="trendIncome" class="trend small text-secondary mt-1">—</div>
+                    </div>
+                  </div>
+                  <div class="col-6">
+                    <div class="stat p-3 rounded-4 bg-danger-subtle">
+                      <div class="label">Despesas</div>
+                      <div id="sumExpense" class="value">R$ 0,00</div>
+                      <div id="trendExpense" class="trend small text-secondary mt-1">—</div>
+                    </div>
+                  </div>
+                  <div class="col-12">
+                    <div class="stat p-3 rounded-4 bg-primary-subtle">
+                      <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                          <div class="label">Saldo do mês</div>
+                          <div id="sumBalance" class="value">R$ 0,00</div>
+                          <div id="trendBalance" class="trend small text-secondary mt-1">—</div>
+                        </div>
+                        <div class="text-end">
+                          <div class="label">Pago</div>
+                          <div id="sumPaid" class="value">R$ 0,00</div>
+                        </div>
+                      </div>
+                      <div class="progress mt-2" role="progressbar" aria-label="Progresso de despesas pagas">
+                        <div id="paidProgress" class="progress-bar" style="width: 0%"></div>
+                      </div>
+                      <div class="form-text mt-1">Progresso: despesas marcadas como pagas / total de despesas.</div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="col-12 col-lg-8">
+            <div class="card shadow-sm rounded-4">
+              <div class="card-body">
+                <div class="d-flex flex-wrap gap-2 align-items-center justify-content-between">
+                  <div>
+                    <h5 class="mb-0">Lançamentos</h5>
+                    <div class="text-secondary small">Filtre, marque como pago e acompanhe o saldo.</div>
+                  </div>
+                  <div class="d-flex gap-2">
+                    <input id="search" class="form-control" placeholder="Buscar por nome/categoria..."
+                      style="min-width: 240px;">
+                    <select id="filterType" class="form-select" style="max-width: 190px;">
+                      <option value="all">Todos</option>
+                      <option value="income">Recebimentos</option>
+                      <option value="expense">Despesas</option>
+                    </select>
+                    <select id="filterStatus" class="form-select" style="max-width: 190px;">
+                      <option value="all">Todos</option>
+                      <option value="open">Em aberto</option>
+                      <option value="paid">Pago</option>
+                    </select>
+                  </div>
+
+                  <div class="actionbar-sticky mt-2">
+                    <div class="d-flex flex-wrap gap-2 align-items-center justify-content-between">
+                      <div class="d-flex gap-2 flex-wrap">
+                        <button id="btnQuickExpense" class="btn btn-sm btn-outline-primary">+ Nova Despesa</button>
+                        <button id="btnQuickIncome" class="btn btn-sm btn-outline-success">+ Novo Recebimento</button>
+                        <button id="btnCompactToggle" class="btn btn-sm btn-outline-secondary">Modo compacto</button>
+                      </div>
+                      <div class="small text-secondary d-none d-md-block">
+                        Atalhos: <kbd>N</kbd> nova despesa, <kbd>R</kbd> novo recebimento
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                <div id="monthLoading" class="alert alert-info d-none py-2 px-3 mb-3" role="status" aria-live="polite">
+                  <span class="spinner-border spinner-border-sm me-2" aria-hidden="true"></span>
+                  Sincronizando dados do mês...
+                </div>
+                <div id="tableSkeleton" class="d-none mb-2" aria-hidden="true">
+                  <div class="skeleton-line mb-2"></div>
+                  <div class="skeleton-line mb-2"></div>
+                  <div class="skeleton-line mb-2"></div>
+                  <div class="skeleton-line mb-2"></div>
+                </div>
+                <div class="mt-3 table-responsive position-relative" id="tableContainer" style="min-height: 200px;">
+                  <div id="tableRefreshLoader" class="position-absolute top-50 start-50 translate-middle d-none"
+                    style="z-index: 10;">
+                    <div class="spinner-border text-primary" role="status">
+                      <span class="visually-hidden">Atualizando tabela...</span>
+                    </div>
+                  </div>
+                  <table class="table align-middle">
+                    <thead>
+                      <tr>
+                        <th>Tipo</th>
+                        <th>Nome</th>
+                        <th>Categoria</th>
+                        <th>Vencimento</th>
+                        <th class="text-end">Valor</th>
+                        <th class="text-center">Pago</th>
+                        <th class="text-end">Ações</th>
+                      </tr>
+                    </thead>
+                    <tbody id="rows"></tbody>
+                  </table>
+                </div>
+                <div id="paginationBox"></div>
+                <div id="emptyState" class="text-center py-5 text-secondary d-none">
+                  <div class="display-6">🧾</div>
+                  <div class="mt-2">Nenhum lançamento nesse mês ainda.</div>
+                  <div class="small">Clique em “Nova Despesa” ou “Novo Recebimento”.</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="tab-pane fade" id="tab-graficos" role="tabpanel" aria-labelledby="tab-graficos-tab">
+        <div class="row g-4">
+          <div class="col-12 col-lg-6">
+            <div class="card shadow-sm rounded-4">
+              <div class="card-body">
+                <h6 class="mb-3">Receitas vs Despesas por dia</h6>
+                <canvas id="chartDaily" height="140"></canvas>
+                <div class="form-text mt-2">Base no vencimento.</div>
+              </div>
+            </div>
+          </div>
+          <div class="col-12 col-lg-6">
+            <div class="card shadow-sm rounded-4">
+              <div class="card-body">
+                <h6 class="mb-3">Despesas por categoria</h6>
+                <canvas id="chartByCategory" height="140"></canvas>
+                <div class="form-text mt-2">Somatório de despesas do mês.</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="tab-pane fade" id="tab-proj" role="tabpanel" aria-labelledby="tab-proj-tab">
+        <div class="row g-4">
+          <div class="col-12">
+            <div class="card shadow-sm rounded-4">
+              <div class="card-body">
+                <h6 class="mb-3">Projeções</h6>
+                <div class="table-responsive">
+                  <table class="table">
+                    <thead>
+                      <tr>
+                        <th>Mês</th>
+                        <th class="text-end">Receitas</th>
+                        <th class="text-end">Despesas</th>
+                        <th class="text-end">Saldo</th>
+                      </tr>
+                    </thead>
+                    <tbody id="projRows"></tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="tab-pane fade" id="tab-metas" role="tabpanel" aria-labelledby="tab-metas-tab">
+        <div class="row g-4 pt-3">
+          <!-- Meta Geral de Economia -->
+          <div class="col-12 col-lg-6">
+            <div class="card shadow-sm rounded-4">
+              <div class="card-body">
+                <h6 class="mb-4"><i class="fas fa-piggy-bank" style="color: #2c3e50; margin-right: 0.5rem;"></i> Meta de
+                  Economia Mensal</h6>
+                <div class="mb-4">
+                  <label class="form-label fw-bold">Quanto você quer economizar este mês?</label>
+                  <div class="input-group">
+                    <span class="input-group-text">R$</span>
+                    <input id="goalMonthly" type="number" class="form-control" min="0" step="0.01" placeholder="0,00">
+                  </div>
+                </div>
+                <button id="goalSaveBtn" class="btn btn-primary w-100 mb-3">Salvar Meta</button>
+
+                <!-- Progresso -->
+                <div id="goalProgressContainer" style="display: none;" class="mt-4">
+                  <div class="d-flex justify-content-between align-items-center mb-2">
+                    <span class="fw-bold">Progresso</span>
+                    <span id="goalProgressPercent" class="badge bg-primary">0%</span>
+                  </div>
+                  <div class="progress mb-2" style="height: 24px;">
+                    <div id="goalProgressBar" class="progress-bar progress-bar-striped bg-success" role="progressbar"
+                      style="width: 0%;" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100"></div>
+                  </div>
+                  <div class="row g-2 mt-3">
+                    <div class="col-6">
+                      <div class="p-3 rounded-3 bg-light text-center">
+                        <div class="small text-muted">Economizado</div>
+                        <div id="goalSaved" class="fw-bold">R$ 0,00</div>
+                      </div>
+                    </div>
+                    <div class="col-6">
+                      <div class="p-3 rounded-3 bg-light text-center">
+                        <div class="small text-muted">Falta</div>
+                        <div id="goalRemaining" class="fw-bold">R$ 0,00</div>
+                      </div>
+                    </div>
+                  </div>
+                  <div id="goalStatus" class="alert alert-info mt-3 mb-0 small"></div>
+                </div>
+
+                <div id="goalEmptyState" class="text-center py-4 text-secondary">
+                  <div style="font-size: 2rem; margin-bottom: 0.5rem;">🎯</div>
+                  <div>Defina uma meta para começar</div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Metas por Categoria -->
+          <div class="col-12 col-lg-6">
+            <div class="card shadow-sm rounded-4">
+              <div class="card-body">
+                <h6 class="mb-4"><i class="fas fa-chart-pie" style="color: #2c3e50; margin-right: 0.5rem;"></i> Limites
+                  por Categoria</h6>
+                <div class="mb-3">
+                  <label class="form-label fw-bold">Categorias com limite de gastos</label>
+                  <div id="categoryGoalsContainer" class="mb-3"></div>
+                  <button id="btnAddCategoryGoal" class="btn btn-sm btn-outline-secondary w-100">
+                    + Adicionar Limite
+                  </button>
+                </div>
+                <div id="categoryGoalsEmpty" class="text-center py-4 text-secondary">
+                  <div style="font-size: 1.5rem; margin-bottom: 0.5rem;">📋</div>
+                  <div class="small">Nenhum limite definido ainda</div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Desempenho nos Últimos 3 Meses -->
+          <div class="col-12">
+            <div class="card shadow-sm rounded-4">
+              <div class="card-body">
+                <h6 class="mb-3"><i class="fas fa-chart-line" style="color: #2c3e50; margin-right: 0.5rem;"></i>
+                  Desempenho dos Últimos 3 Meses</h6>
+                <div id="goalHistoryContainer" class="row g-3"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="tab-pane fade" id="tab-periodo" role="tabpanel" aria-labelledby="tab-periodo-tab">
+        <div class="row g-4">
+          <div class="col-12">
+            <div class="card shadow-sm rounded-4">
+              <div class="card-body">
+                <h6 class="mb-3">Análise por Período</h6>
+                <div class="d-flex gap-3 align-items-end">
+                  <div>
+                    <label class="form-label">Início</label>
+                    <input id="periodStart" type="month" class="form-control">
+                  </div>
+                  <div>
+                    <label class="form-label">Fim</label>
+                    <input id="periodEnd" type="month" class="form-control">
+                  </div>
+                  <button id="periodRunBtn" class="btn btn-primary">Analisar</button>
+                </div>
+                <div class="row g-2 mt-3">
+                  <div class="col-12 col-md-4">
+                    <div class="stat p-3 rounded-4 bg-success-subtle">
+                      <div class="label">Receitas</div>
+                      <div id="periodIncome" class="value">R$ 0,00</div>
+                    </div>
+                  </div>
+                  <div class="col-12 col-md-4">
+                    <div class="stat p-3 rounded-4 bg-danger-subtle">
+                      <div class="label">Despesas</div>
+                      <div id="periodExpense" class="value">R$ 0,00</div>
+                    </div>
+                  </div>
+                  <div class="col-12 col-md-4">
+                    <div class="stat p-3 rounded-4 bg-primary-subtle">
+                      <div class="label">Saldo</div>
+                      <div id="periodBalance" class="value">R$ 0,00</div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="tab-pane fade" id="tab-compare" role="tabpanel" aria-labelledby="tab-compare-tab">
+        <div class="row g-4">
+          <div class="col-12">
+            <div class="card shadow-sm rounded-4">
+              <div class="card-body">
+                <h6 class="mb-3">Comparativo de Meses</h6>
+                <div class="d-flex gap-3 align-items-end">
+                  <div>
+                    <label class="form-label">Mês A</label>
+                    <input id="cmpA" type="month" class="form-control">
+                  </div>
+                  <div>
+                    <label class="form-label">Mês B</label>
+                    <input id="cmpB" type="month" class="form-control">
+                  </div>
+                  <button id="cmpRunBtn" class="btn btn-primary">Comparar</button>
+                </div>
+                <div class="table-responsive mt-3">
+                  <table class="table">
+                    <thead>
+                      <tr>
+                        <th></th>
+                        <th class="text-end">Receitas</th>
+                        <th class="text-end">Despesas</th>
+                        <th class="text-end">Saldo</th>
+                      </tr>
+                    </thead>
+                    <tbody id="cmpRows"></tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="tab-pane fade" id="tab-recorrencias" role="tabpanel" aria-labelledby="tab-recorrencias-tab">
+        <div class="row g-4 pt-3">
+          <div class="col-12">
+            <div class="card shadow-sm rounded-4">
+              <div class="card-body">
+                <div class="d-flex flex-wrap gap-2 justify-content-between align-items-center">
+                  <div>
+                    <h6 class="mb-1">Recorrências</h6>
+                    <div class="text-secondary small">Modelos mensais que o Spendify cria automaticamente.</div>
+                  </div>
+                  <button id="btnNewRecurring" class="btn btn-outline-primary btn-sm">+ Nova recorrência</button>
+                </div>
+                <div class="table-responsive mt-3">
+                  <table class="table align-middle">
+                    <thead>
+                      <tr>
+                        <th>Tipo</th>
+                        <th>Nome</th>
+                        <th>Categoria</th>
+                        <th>Dia</th>
+                        <th class="text-end">Valor</th>
+                        <th class="text-end">Ações</th>
+                      </tr>
+                    </thead>
+                    <tbody id="recRows"></tbody>
+                  </table>
+                </div>
+                <div id="recEmpty" class="text-center py-5 text-secondary d-none">
+                  <div class="display-6">🔁</div>
+                  <div class="mt-2">Nenhuma recorrência cadastrada.</div>
+                  <div class="small">Crie uma recorrência para contas fixas (aluguel, internet, etc.).</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Tab: Meus Cofres (Family Plan Only) -->
+      <div class="tab-pane fade" id="tab-cofres" role="tabpanel" aria-labelledby="tab-cofres-tab">
+        <div class="row g-4 pt-3">
+          <div class="col-12">
+            <div class="card shadow-sm rounded-4">
+              <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                  <h6 class="mb-0">🏠 Meus Cofres Compartilhados</h6>
+                  <button id="btnRefreshHouseholds" class="btn btn-sm btn-outline-primary">🔄 Atualizar</button>
+                </div>
+                <p class="text-secondary small mb-3">
+                  Aqui estão todos os cofres compartilhados dos quais você faz parte.
+                  Você pode ser o dono ou um participante convidado.
+                </p>
+
+                <!-- Loading State -->
+                <div id="householdsLoading" class="text-center py-4">
+                  <div class="spinner-border text-primary" role="status">
+                    <span class="visually-hidden">Carregando...</span>
+                  </div>
+                  <p class="text-secondary small mt-2">Carregando cofres...</p>
+                </div>
+
+                <!-- Lista de Cofres -->
+                <div id="householdsList" class="d-none">
+                  <!-- Preenchido dinamicamente -->
+                </div>
+
+                <!-- Empty State -->
+                <div id="householdsEmpty" class="text-center py-5 text-secondary d-none">
+                  <div class="display-6">🏠</div>
+                  <div class="mt-2">Você ainda não faz parte de nenhum cofre compartilhado.</div>
+                  <div class="small mt-2">Use o botão "Cofre compartilhado" no menu para criar ou entrar em um cofre.
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="tab-pane fade" id="tab-categorias" role="tabpanel" aria-labelledby="tab-categorias-tab">
+        <div class="row g-4 pt-3">
+          <div class="col-12 col-lg-6">
+            <div class="card shadow-sm rounded-4">
+              <div class="card-body">
+                <h6 class="mb-3">Categorias</h6>
+                <div class="text-secondary small mb-3">Lista de categorias sugeridas para acelerar seu cadastro.</div>
+                <div class="input-group mb-2">
+                  <input id="catNew" class="form-control" placeholder="Nova categoria (ex: Mercado)">
+                  <button id="catAddBtn" class="btn btn-primary">Adicionar</button>
+                </div>
+                <div class="table-responsive">
+                  <table class="table align-middle">
+                    <thead>
+                      <tr>
+                        <th>Categoria</th>
+                        <th class="text-end">Ações</th>
+                      </tr>
+                    </thead>
+                    <tbody id="catRows"></tbody>
+                  </table>
+                </div>
+                <div id="catEmpty" class="text-center py-5 text-secondary d-none">
+                  <div class="display-6">🏷️</div>
+                  <div class="mt-2">Sem categorias ainda.</div>
+                  <div class="small">Adicione as que você mais usa.</div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="col-12 col-lg-6">
+            <div class="card shadow-sm rounded-4">
+              <div class="card-body">
+                <h6 class="mb-3">Sugestões rápidas</h6>
+                <input type="text" id="catSearchInput" class="form-control form-control-sm mb-3"
+                  placeholder="🔍 Buscar categorias..." style="display: none;">
+                <div id="catSuggestContainer" class="d-flex flex-wrap gap-2"></div>
+                <div class="form-text mt-2 small">💡 Clique para adicionar. Digitar também funciona no campo de
+                  categoria do formulário.</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="tab-pane fade" id="tab-ia" role="tabpanel" aria-labelledby="tab-ia-tab">
+        <!-- Tela quando NÃO contratou IA -->
+        <div id="aiNotPurchasedView" class="container my-5">
+          <div class="row justify-content-center">
+            <div class="col-12 col-md-8">
+              <div class="card shadow-lg rounded-4 border-0 overflow-hidden">
+                <div class="p-5 text-center" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white;">
+                  <div style="font-size: 4rem; margin-bottom: 1rem;">🤖</div>
+                  <h2 class="fw-bold mb-2">Assistente de Gastos com IA</h2>
+                  <p class="mb-0 lead">Receba dicas personalizadas para controlar seus gastos</p>
+                </div>
+                <div class="card-body p-5">
+                  <div class="row g-3 mb-5">
+                    <div class="col-12 col-sm-6">
+                      <div class="text-center p-3">
+                        <div style="font-size: 2rem; margin-bottom: 0.5rem;">💡</div>
+                        <div class="fw-bold">Dicas Inteligentes</div>
+                        <div class="small text-secondary">Análise dos seus gastos</div>
+                      </div>
+                    </div>
+                    <div class="col-12 col-sm-6">
+                      <div class="text-center p-3">
+                        <div style="font-size: 2rem; margin-bottom: 0.5rem;">📊</div>
+                        <div class="fw-bold">Dados em Tempo Real</div>
+                        <div class="small text-secondary">Baseado no seu orçamento</div>
+                      </div>
+                    </div>
+                    <div class="col-12 col-sm-6">
+                      <div class="text-center p-3">
+                        <div style="font-size: 2rem; margin-bottom: 0.5rem;">🎯</div>
+                        <div class="fw-bold">Metas Alcançáveis</div>
+                        <div class="small text-secondary">Planejamento personalizado</div>
+                      </div>
+                    </div>
+                    <div class="col-12 col-sm-6">
+                      <div class="text-center p-3">
+                        <div style="font-size: 2rem; margin-bottom: 0.5rem;">⚡</div>
+                        <div class="fw-bold">Respostas Rápidas</div>
+                        <div class="small text-secondary">Powered by Groq AI</div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div class="alert alert-info rounded-4 p-4 mb-4" role="alert">
+                    <h6 class="fw-bold mb-2">💬 Como funciona:</h6>
+                    <ul class="small mb-0">
+                      <li>Faça perguntas sobre seus gastos</li>
+                      <li>Receba análises detalhadas</li>
+                      <li>Obtenha dicas de economia</li>
+                      <li>Atinja suas metas financeiras</li>
+                    </ul>
+                  </div>
+
+                  <div class="text-center mb-4">
+                    <div style="font-size: 2.5rem; font-weight: bold; color: #667eea;">
+                      R$ 15,00<span style="font-size: 1rem; color: #666;">/mês</span>
+                    </div>
+                    <div class="small text-secondary">Acesso ilimitado à IA</div>
+                  </div>
+
+                  <div class="d-grid gap-2">
+                    <button id="btnContractAI" class="btn btn-primary btn-lg rounded-3 fw-bold">
+                      <i class="fas fa-brain me-2"></i> Contratar IA Agora
+                    </button>
+                    <button id="btnCancelAIPurchase" class="btn btn-outline-secondary btn-lg rounded-3">
+                      Talvez depois
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Tela quando JÁ contratou IA -->
+        <div id="aiPurchasedView" class="row g-4 pt-3 d-none">
+          <div class="col-12 col-lg-8">
+            <div class="card shadow-sm rounded-4" style="height: 600px; display: flex; flex-direction: column;">
+              <div class="card-header bg-primary text-white rounded-top-4">
+                <div class="d-flex justify-content-between align-items-center">
+                  <h6 class="mb-0"><i class="fas fa-brain me-2"></i> Assistente de Gastos</h6>
+                  <button id="btnClearChatHistory" class="btn btn-sm btn-light" title="Limpar conversa">
+                    <i class="fas fa-trash-alt"></i>
+                  </button>
+                </div>
+              </div>
+              <div class="card-body d-flex flex-column" style="overflow-y: auto; flex: 1;">
+                <div id="aiChatHistory" class="mb-3" style="overflow-y: auto; flex: 1;">
+                  <!-- Mensagens serão adicionadas aqui -->
+                </div>
+              </div>
+              <div class="card-footer">
+                <div class="input-group">
+                  <input id="aiChatInput" type="text" class="form-control" placeholder="Faça uma pergunta sobre seus gastos..."
+                    maxlength="500" />
+                  <button id="btnSendAIMessage" class="btn btn-primary">
+                    <i class="fas fa-paper-plane"></i>
+                  </button>
+                </div>
+                <div id="aiLoadingIndicator" class="small text-muted mt-2 d-none">
+                  <span class="spinner-border spinner-border-sm me-2" aria-hidden="true"></span>
+                  IA pensando...
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="col-12 col-lg-4">
+            <div class="card shadow-sm rounded-4 mb-4">
+              <div class="card-body">
+                <h6 class="mb-3"><i class="fas fa-lightbulb text-warning me-2"></i> Dicas Rápidas</h6>
+                <div id="aiQuickTips" class="d-flex flex-column gap-2">
+                  <button class="btn btn-sm btn-outline-primary text-start" onclick="aiQuickTip('analise')">
+                    📊 Analisar meus gastos
+                  </button>
+                  <button class="btn btn-sm btn-outline-primary text-start" onclick="aiQuickTip('economia')">
+                    💰 Dicas para economizar
+                  </button>
+                  <button class="btn btn-sm btn-outline-primary text-start" onclick="aiQuickTip('categoria')">
+                    📁 Como categorizar melhor
+                  </button>
+                  <button class="btn btn-sm btn-outline-primary text-start" onclick="aiQuickTip('metas')">
+                    🎯 Atingir metas de economia
+                  </button>
+                  <button class="btn btn-sm btn-outline-primary text-start" onclick="aiQuickTip('habitos')">
+                    🔄 Mudar hábitos de gasto
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <div class="card shadow-sm rounded-4">
+              <div class="card-body">
+                <h6 class="mb-3"><i class="fas fa-chart-line text-success me-2"></i> Análise Rápida</h6>
+                <div class="small">
+                  <div class="mb-2">
+                    <div class="text-secondary">Receitas</div>
+                    <div id="aiSumIncome" class="fw-bold">R$ 0,00</div>
+                  </div>
+                  <div class="mb-2">
+                    <div class="text-secondary">Despesas</div>
+                    <div id="aiSumExpense" class="fw-bold">R$ 0,00</div>
+                  </div>
+                  <div class="mb-2">
+                    <div class="text-secondary">Saldo</div>
+                    <div id="aiSumBalance" class="fw-bold text-success">R$ 0,00</div>
+                  </div>
+                  <button id="btnGetAIAnalysis" class="btn btn-sm btn-primary w-100 mt-2">
+                    Análise Completa
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="tab-pane fade" id="tab-config" role="tabpanel" aria-labelledby="tab-config-tab">
+        <div class="row g-4 pt-3">
+          <div class="col-12 col-lg-7">
+            <div class="card shadow-sm rounded-4">
+              <div class="card-body">
+                <h6 class="mb-3">Configurações</h6>
+                <div class="mb-3">
+                  <label class="form-label">Salário (total do mês)</label>
+                  <div class="input-group">
+                    <span class="input-group-text">R$</span>
+                    <input id="salaryMonthly" type="number" class="form-control" min="0" step="0.01"
+                      placeholder="Ex: 4500">
+                  </div>
+                  <div class="form-text">Usado para projeções, metas e tendências.</div>
+                </div>
+                <div class="mb-3">
+                  <label class="form-label">Recebimentos automáticos</label>
+                  <div class="form-check">
+                    <input class="form-check-input" type="checkbox" id="autoIncomeEnabled">
+                    <label class="form-check-label" for="autoIncomeEnabled">Criar 2 recebimentos (dia 5 e dia
+                      20)</label>
+                  </div>
+                  <div class="row g-2 mt-2">
+                    <div class="col-6">
+                      <label class="form-label small mb-1">Dia 1</label>
+                      <input id="autoIncomeDay1" type="number" class="form-control" min="1" max="31">
+                    </div>
+                    <div class="col-6">
+                      <label class="form-label small mb-1">Dia 2</label>
+                      <input id="autoIncomeDay2" type="number" class="form-control" min="1" max="31">
+                    </div>
+                  </div>
+                  <div class="d-flex gap-2 mt-3">
+                    <button id="btnGenerateIncome" class="btn btn-outline-success">Gerar recebimentos do mês</button>
+                    <button id="btnThemeToggle" class="btn btn-outline-secondary">Alternar tema</button>
+                  </div>
+                </div>
+                <div class="alert alert-light border mt-3 mb-0">
+                  <div class="fw-semibold">Dica</div>
+                  <div class="small text-secondary">Use “Cofre compartilhado” no menu do usuário para gerenciar em
+                    casal/família.</div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="col-12 col-lg-5">
+            <div class="card shadow-sm rounded-4">
+              <div class="card-body">
+                <h6 class="mb-3">Preferências</h6>
+                <div class="form-check form-switch">
+                  <input class="form-check-input" type="checkbox" id="prefCompact">
+                  <label class="form-check-label" for="prefCompact">Modo compacto por padrão</label>
+                </div>
+                <div class="form-text">Deixa a tabela mais “justinha” (mais linhas por tela).</div>
+
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </main>
+
+  <!-- Modal: Perfil do Usuário -->
+  <div class="modal fade" id="profileModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+      <div class="modal-content rounded-4">
+        <div class="modal-header">
+          <h5 class="modal-title">Meu Perfil</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
+        </div>
+        <form id="profileForm">
+          <div class="modal-body">
+            <div class="row g-3">
+              <div class="col-12">
+                <label class="form-label">Nome</label>
+                <input id="pfName" type="text" class="form-control" placeholder="Seu nome completo">
+              </div>
+              <div class="col-12">
+                <label class="form-label">Email</label>
+                <input id="pfEmail" type="email" class="form-control" placeholder="seu@email.com" readonly>
+              </div>
+              <div class="col-12">
+                <label class="form-label">Telefone</label>
+                <input id="pfPhone" type="tel" class="form-control" placeholder="(11) 99999-9999">
+              </div>
+              <div class="col-12">
+                <label class="form-label">Cidade</label>
+                <input id="pfCity" type="text" class="form-control" placeholder="São Paulo">
+              </div>
+            </div>
+          </div>
+          <div class="modal-footer">
+            <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
+            <button id="btnSaveProfile" type="submit" class="btn btn-primary">Salvar</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal: Form -->
+  <div class="modal fade" id="entryModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+      <div class="modal-content rounded-4">
+        <div class="modal-header">
+          <h5 id="entryModalTitle" class="modal-title">Novo</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
+        </div>
+        <form id="entryForm">
+          <div class="modal-body">
+            <input type="hidden" id="entryId">
+            <div class="row g-2">
+              <div class="col-6">
+                <label class="form-label">Tipo</label>
+                <select id="entryType" class="form-select" required>
+                  <option value="expense">Despesa</option>
+                  <option value="income">Recebimento</option>
+                </select>
+              </div>
+              <div class="col-6">
+                <label class="form-label">Vencimento</label>
+                <input id="entryDue" type="date" class="form-control" required>
+              </div>
+              <div class="col-12">
+                <label class="form-label">Nome</label>
+                <input id="entryName" class="form-control" placeholder="Ex: Fatura do cartão" required>
+              </div>
+              <div class="col-12">
+                <label class="form-label">Categoria</label>
+                <div class="position-relative">
+                  <input id="entryCategory" class="form-control" placeholder="Ex: Cartão, Mercado, Transporte..."
+                    autocomplete="off" list="categoryDatalist">
+                  <datalist id="categoryDatalist"></datalist>
+                </div>
+                <div id="categorySuggestions" class="d-flex flex-wrap gap-2 mt-2"></div>
+              </div>
+              <div class="col-12">
+                <label class="form-label">Valor</label>
+                <div class="input-group">
+                  <span class="input-group-text">R$</span>
+                  <input id="entryAmount" type="number" min="0" step="0.01" class="form-control" required>
+                </div>
+              </div>
+              <div class="col-12">
+                <div class="form-check">
+                  <input id="entryPaid" class="form-check-input" type="checkbox">
+                  <label class="form-check-label" for="entryPaid">Marcar como pago</label>
+                </div>
+              </div>
+              <div class="col-12">
+                <div class="form-check">
+                  <input id="entryRecurring" class="form-check-input" type="checkbox">
+                  <label class="form-check-label" for="entryRecurring">Recorrente (todo mês)</label>
+                </div>
+                <div class="form-text">Se marcado, este lançamento será criado automaticamente em todos os meses
+                  futuros.</div>
+              </div>
+              <div class="col-12">
+                <label class="form-label">Observações</label>
+                <textarea id="entryNotes" class="form-control" rows="2" placeholder="Opcional..."></textarea>
+              </div>
+            </div>
+          </div>
+          <div class="modal-footer">
+            <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
+            <button id="btnSaveEntry" type="submit" class="btn btn-primary">Salvar</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal: Confirmação de Pagamento -->
+  <div class="modal fade" id="paymentConfirmModal" tabindex="-1" aria-hidden="true" data-bs-backdrop="static"
+    data-bs-keyboard="false">
+    <div class="modal-dialog modal-dialog-centered modal-sm">
+      <div class="modal-content rounded-4 border-0 shadow-lg" style="max-height: 90vh;">
+        <!-- Header -->
+        <div class="modal-header border-0 pb-0">
+          <div class="w-100">
+            <h5 class="modal-title mb-0">Finalize o Pagamento</h5>
+            <div class="text-secondary small mt-2">
+              <span id="paymentPlanBadge" class="badge text-bg-primary">Plano Pro</span>
+              <span id="paymentAmount" class="ms-2">R$ 19,90</span>
+            </div>
+          </div>
+          <button type="button" class="btn-close" id="btnClosePaymentModal" aria-label="Fechar"></button>
+        </div>
+
+        <!-- Body -->
+        <div class="modal-body" style="max-height: 65vh; overflow-y: auto;">
+          <!-- QR Code / Boleto -->
+          <div id="paymentMediaContainer" class="text-center mb-3">
+            <img id="paymentQrImage" src="" alt="QR Code"
+              style="max-width: 100%; width: 220px; height: auto; display: none;" class="mb-3 img-fluid">
+            <a id="paymentBoletoLink" href="" target="_blank" class="btn btn-outline-primary w-100"
+              style="display: none;">
+              📄 Abrir Boleto
+            </a>
+          </div>
+
+          <!-- Chave PIX (Código para copiar) -->
+          <div id="paymentPixKeyContainer" class="alert alert-success mb-3" style="display: none;">
+            <p class="small text-secondary mb-2"><strong><i class="fas fa-credit-card"
+                  style="color: #2c3e50; margin-right: 0.5rem;"></i> Chave PIX:</strong></p>
+            <p id="paymentPixKey" class="small text-monospace mb-2"
+              style="font-size: 0.85rem; background: #f8f9fa; padding: 0.75rem; border-radius: 0.375rem; user-select: all; word-break: break-all;">
+              ...</p>
+            <button type="button" class="btn btn-sm btn-success w-100" id="btnCopyPixKey">
+              <i class="fas fa-copy" style="margin-right: 0.5rem;"></i> Copiar Chave PIX
+            </button>
+          </div>
+
+          <!-- Timer de Expiração -->
+          <div class="alert alert-info d-flex align-items-center mb-3 gap-2" role="alert">
+            <span id="paymentTimer" class="fw-bold flex-shrink-0">01:00</span>
+            <span class="small text-truncate">Tempo para completar o pagamento</span>
+          </div>
+
+          <!-- Status de Aguardando -->
+          <div id="paymentWaitingStatus" class="text-center mb-4" style="display: none;">
+            <div class="spinner-border text-primary mb-3" role="status" style="width: 2.5rem; height: 2.5rem;">
+              <span class="visually-hidden">Carregando...</span>
+            </div>
+            <p class="text-secondary fw-medium">
+              <span class="loading-dot">.</span><span class="loading-dot">.</span><span class="loading-dot">.</span>
+            </p>
+            <p class="small text-secondary">Aguardando confirmação do pagamento</p>
+          </div>
+
+          <!-- Sucesso -->
+          <div id="paymentSuccessStatus" class="text-center mb-4" style="display: none;">
+            <div style="font-size: 3rem; margin-bottom: 1rem;">✅</div>
+            <h6 class="text-success fw-bold">Pagamento Confirmado!</h6>
+            <p class="small text-secondary">Seu plano foi ativado com sucesso.</p>
+          </div>
+
+          <!-- Informações Adicionais -->
+          <div class="alert alert-light border mb-0" id="paymentInfo">
+            <p class="small text-secondary mb-2"><strong>ID do Pedido:</strong></p>
+            <p id="paymentOrderId" class="small text-monospace text-break"
+              style="font-size: 0.85rem; word-break: break-all;">uid_...</p>
+          </div>
+        </div>
+
+        <!-- Footer -->
+        <div class="modal-footer border-0 pt-0">
+          <button type="button" class="btn btn-outline-secondary" id="btnBackFromPayment" data-bs-dismiss="modal">
+            Voltar
+          </button>
+          <button type="button" class="btn btn-primary" id="btnCopyOrderId" style="display: none;">
+            Copiar ID
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
+
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/js/bootstrap.bundle.min.js"
+    integrity="sha384-FKyoEForCGlyvwx9Hj09JcYn3nv7wiPVlz7YYwJrWVcXK/BmnVDxM+D2scQbITxI"
+    crossorigin="anonymous"></script>
+  <script src="./assets/js/app.js"></script>
+  <script src="./assets/js/groq-ai.js"></script>
+  <script src="./assets/js/ai-integration.js"></script>
+
+  <!-- Toast: Desfazer -->
+  <div class="toast-container position-fixed bottom-0 end-0 p-3" style="z-index:1100">
+    <div id="undoToast" class="toast text-bg-dark border-0" role="alert" aria-live="assertive" aria-atomic="true">
+      <div class="d-flex align-items-center">
+        <div id="undoToastMsg" class="toast-body">Ação feita.</div>
+        <button id="undoToastBtn" type="button" class="btn btn-link btn-sm text-warning me-2">Desfazer</button>
+        <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"
+          aria-label="Fechar"></button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Global App Toast -->
+  <div class="toast-container position-fixed top-0 end-0 p-3" style="z-index: 2000">
+    <div id="appToast" class="toast align-items-center border-0" role="alert" aria-live="polite" aria-atomic="true">
+      <div class="d-flex">
+        <div id="appToastBody" class="toast-body fw-semibold"></div>
+        <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"
+          aria-label="Fechar"></button>
+      </div>
+    </div>
+  </div>
+
+  <!-- PAYMENT PENDING VIEW (mostra quando usuário não tem plano) -->
+  <main id="paymentPendingView" class="container my-5 d-none">
+    <div class="row justify-content-center">
+      <div class="col-12 col-md-8">
+        <div class="card shadow-lg rounded-4 border-0 overflow-hidden">
+          <div class="p-5 text-center"
+            style="background: linear-gradient(135deg, #0d6efd 0%, #0a58ca 100%); color: white;">
+            <div style="font-size: 4rem; margin-bottom: 1rem;"><i class="fas fa-credit-card"></i></div>
+            <h2 class="fw-bold mb-2">Escolha seu Plano</h2>
+            <p class="mb-0">Libere todos os recursos do Spendify com uma assinatura</p>
+          </div>
+          <div class="card-body p-5">
+            <div class="row g-3 mb-4">
+              <div class="col-12 col-lg-4">
+                <div class="plan-card h-100">
+                  <div class="plan-title">Basic</div>
+                  <div class="plan-price">R$ 10,90<span>/mês</span></div>
+                  <ul class="plan-list">
+                    <li>1 usuário, 1 cofre pessoal</li>
+                    <li>Lançamentos + filtros</li>
+                    <li>Gráficos básicos</li>
+                  </ul>
+                  <button id="pendingBtnBasic" class="btn btn-outline-primary w-100">Assinar Basic</button>
+                </div>
+              </div>
+              <div class="col-12 col-lg-4">
+                <div class="plan-card featured h-100">
+                  <div class="plan-badge">Mais vendido</div>
+                  <div class="plan-title">Pro</div>
+                  <div class="plan-price">R$ 15,90<span>/mês</span></div>
+                  <ul class="plan-list">
+                    <li>Recorrências ilimitadas</li>
+                    <li>Metas + projeções</li>
+                    <li>Comparativo de meses</li>
+                  </ul>
+                  <button id="pendingBtnPro" class="btn btn-primary w-100">Assinar Pro</button>
+                </div>
+              </div>
+              <div class="col-12 col-lg-4">
+                <div class="plan-card h-100">
+                  <div class="plan-title">Family</div>
+                  <div class="plan-price">R$ 25,90<span>/mês</span></div>
+                  <ul class="plan-list">
+                    <li>Cofre compartilhado</li>
+                    <li>Papéis (owner/member)</li>
+                    <li>Histórico de alterações</li>
+                  </ul>
+                  <button id="pendingBtnFamily" class="btn btn-outline-primary w-100">Assinar Family</button>
+                </div>
+              </div>
+            </div>
+            <div class="text-center mt-4">
+              <button id="btnBackToHome" class="btn btn-link text-secondary">← Voltar para página inicial</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </main>
+
+
+</body>
+
+</html>
