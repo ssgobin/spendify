@@ -1,0 +1,74 @@
+# Habilitar compressão GZIP
+<IfModule mod_deflate.c>
+  AddOutputFilterByType DEFLATE text/html text/plain text/xml text/css text/javascript application/javascript
+</IfModule>
+
+# Cache do navegador (1 ano para assets, 7 dias para HTML)
+<IfModule mod_expires.c>
+  ExpiresActive On
+  
+  # Imagens
+  ExpiresByType image/jpeg "access plus 1 year"
+  ExpiresByType image/gif "access plus 1 year"
+  ExpiresByType image/png "access plus 1 year"
+  ExpiresByType image/webp "access plus 1 year"
+  ExpiresByType image/x-icon "access plus 1 year"
+  
+  # Stylesheets
+  ExpiresByType text/css "access plus 1 year"
+  
+  # JavaScript
+  ExpiresByType application/javascript "access plus 1 year"
+  ExpiresByType text/javascript "access plus 1 year"
+  
+  # Fontes
+  ExpiresByType font/ttf "access plus 1 year"
+  ExpiresByType font/otf "access plus 1 year"
+  ExpiresByType font/woff "access plus 1 year"
+  ExpiresByType font/woff2 "access plus 1 year"
+  
+  # HTML (cache curto)
+  ExpiresByType text/html "access plus 7 days"
+</IfModule>
+
+# HTTP Headers para segurança e SEO
+<IfModule mod_headers.c>
+  # Habilitar HTTPS/Security Headers
+  Header set Strict-Transport-Security "max-age=31536000; includeSubDomains" env=HTTPS
+  
+  # X-Content-Type-Options
+  Header set X-Content-Type-Options "nosniff"
+  
+  # X-Frame-Options (previne clickjacking)
+  Header set X-Frame-Options "SAMEORIGIN"
+  
+  # Canonical header (se necessário)
+  Header set Link "</>"
+</IfModule>
+
+# Remover ETag (reduz requisições)
+FileETag None
+
+# SEO: Redirecionar www para non-www (escolha uma)
+# Descomente a opção que você prefere:
+
+# Opção 1: Redirecionar WWW para NON-WWW
+# <IfModule mod_rewrite.c>
+#   RewriteEngine On
+#   RewriteCond %{HTTP_HOST} ^www\.(.*)$ [NC]
+#   RewriteRule ^(.*)$ https://%1%{REQUEST_URI} [R=301,L]
+# </IfModule>
+
+# Opção 2: Redirecionar NON-WWW para WWW
+# <IfModule mod_rewrite.c>
+#   RewriteEngine On
+#   RewriteCond %{HTTP_HOST} !^www\.
+#   RewriteRule ^(.*)$ https://www.%{HTTP_HOST}%{REQUEST_URI} [R=301,L]
+# </IfModule>
+
+# Opção 3: Forçar HTTPS
+<IfModule mod_rewrite.c>
+  RewriteEngine On
+  RewriteCond %{HTTPS} off
+  RewriteRule ^(.*)$ https://%{HTTP_HOST}%{REQUEST_URI} [R=301,L]
+</IfModule>

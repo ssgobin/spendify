@@ -80,13 +80,13 @@ app.use(cors({
       callback(null, true);
       return;
     }
-    
+
     // Em produção, requer origem e valida contra whitelist
     if (!origin) {
       callback(new Error("No origin header - CORS blocked"));
       return;
     }
-    
+
     if (ALLOWED_ORIGINS.includes(origin)) {
       callback(null, true);
     } else {
@@ -106,9 +106,9 @@ app.use((req, res, next) => {
   if (['POST', 'PUT', 'PATCH'].includes(req.method)) {
     const contentType = req.headers['content-type'];
     if (!contentType || !contentType.includes('application/json')) {
-      return res.status(415).json({ 
+      return res.status(415).json({
         error: 'unsupported_media_type',
-        message: 'Content-Type deve ser application/json' 
+        message: 'Content-Type deve ser application/json'
       });
     }
   }
@@ -356,7 +356,7 @@ app.post("/payments/create", paymentLimiter, verifyFirebaseToken, async (req, re
     const data = r.data || {};
 
     const createReq = data?.pix_create_request || data?.create_request || {};
-    
+
     // Verificar se o PagHiper rejeitou a transação
     if (createReq?.result === "reject") {
       const errorMessage = createReq?.response_message || "Pagamento rejeitado pela API";
@@ -366,7 +366,7 @@ app.post("/payments/create", paymentLimiter, verifyFirebaseToken, async (req, re
         message: errorMessage
       });
     }
-    
+
     const pixCode = createReq?.pix_code || {};
 
     const pixQrImage =
@@ -410,19 +410,19 @@ app.post("/payments/create", paymentLimiter, verifyFirebaseToken, async (req, re
     const errorMsg = e.message || "Unknown error";
     const errorStatus = e.response?.status || 500;
     const responseData = e.response?.data || {};
-    
+
     console.error("[Payment] Erro:", {
       status: errorStatus,
       error: e.code,
       url: e.config?.url,
       responseData: JSON.stringify(responseData)
     });
-    
+
     // Se o erro veio do PagHiper, retornar a mensagem específica
-    const paghiperError = responseData?.pix_create_request?.response_message || 
-                         responseData?.create_request?.response_message ||
-                         responseData?.message;
-    
+    const paghiperError = responseData?.pix_create_request?.response_message ||
+      responseData?.create_request?.response_message ||
+      responseData?.message;
+
     return res.status(errorStatus >= 400 && errorStatus < 600 ? errorStatus : 500).json({
       error: "payment_creation_failed",
       message: paghiperError || "Erro ao processar pagamento"
@@ -535,36 +535,36 @@ app.post("/ai/chat", aiLimiter, verifyFirebaseToken, async (req, res) => {
 
     // Validação de entrada
     if (!messages || !Array.isArray(messages) || messages.length === 0) {
-      return res.status(400).json({ 
+      return res.status(400).json({
         error: "missing_messages",
-        message: "Mensagens são obrigatórias" 
+        message: "Mensagens são obrigatórias"
       });
     }
 
     // Validar tamanho das mensagens
     if (messages.length > 50) {
-      return res.status(400).json({ 
+      return res.status(400).json({
         error: "too_many_messages",
-        message: "Número máximo de mensagens excedido" 
+        message: "Número máximo de mensagens excedido"
       });
     }
 
     // SECURITY: Verificar se o usuário tem acesso à IA
     const uid = req.user.uid;
     const userDoc = await db.collection("users").doc(uid).get();
-    
+
     if (!userDoc.exists) {
-      return res.status(404).json({ 
+      return res.status(404).json({
         error: "user_not_found",
-        message: "Usuário não encontrado" 
+        message: "Usuário não encontrado"
       });
     }
 
     const userData = userDoc.data() || {};
     if (!userData.aiPurchased) {
-      return res.status(403).json({ 
-        error: "ai_not_purchased", 
-        message: "Você precisa contratar a IA primeiro" 
+      return res.status(403).json({
+        error: "ai_not_purchased",
+        message: "Você precisa contratar a IA primeiro"
       });
     }
 
@@ -574,9 +574,9 @@ app.post("/ai/chat", aiLimiter, verifyFirebaseToken, async (req, res) => {
 
     if (!GROQ_API_KEY) {
       console.error("[AI] GROQ_API_KEY não configurada");
-      return res.status(500).json({ 
+      return res.status(500).json({
         error: "ai_not_configured",
-        message: "Serviço de IA não está configurado" 
+        message: "Serviço de IA não está configurado"
       });
     }
 
@@ -612,8 +612,8 @@ app.post("/ai/chat", aiLimiter, verifyFirebaseToken, async (req, res) => {
       }
     );
 
-    const aiResponse = response.data?.choices?.[0]?.message?.content || 
-                       "Desculpe, não consegui processar sua mensagem.";
+    const aiResponse = response.data?.choices?.[0]?.message?.content ||
+      "Desculpe, não consegui processar sua mensagem.";
 
     return res.json({
       success: true,
@@ -629,22 +629,22 @@ app.post("/ai/chat", aiLimiter, verifyFirebaseToken, async (req, res) => {
     });
 
     if (error.response?.status === 429) {
-      return res.status(429).json({ 
-        error: "rate_limit", 
-        message: "Limite de uso da IA atingido. Tente novamente em alguns minutos." 
+      return res.status(429).json({
+        error: "rate_limit",
+        message: "Limite de uso da IA atingido. Tente novamente em alguns minutos."
       });
     }
 
     if (error.code === 'ECONNABORTED') {
-      return res.status(408).json({ 
-        error: "timeout", 
-        message: "Tempo de resposta excedido. Tente novamente." 
+      return res.status(408).json({
+        error: "timeout",
+        message: "Tempo de resposta excedido. Tente novamente."
       });
     }
 
-    return res.status(500).json({ 
-      error: "ai_error", 
-      message: "Erro ao processar mensagem com a IA" 
+    return res.status(500).json({
+      error: "ai_error",
+      message: "Erro ao processar mensagem com a IA"
     });
   }
 });

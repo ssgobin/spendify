@@ -115,13 +115,13 @@ app.use(cors({
             callback(null, true);
             return;
         }
-        
+
         // Em produção, requer origem e valida contra whitelist
         if (!origin) {
             callback(new Error("No origin header - CORS blocked"));
             return;
         }
-        
+
         if (ALLOWED_ORIGINS.includes(origin)) {
             callback(null, true);
         } else {

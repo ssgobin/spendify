@@ -1,0 +1,26 @@
+# Spendify SEO Configuration
+# Allow search engines to index the site
+
+User-agent: *
+Allow: /
+Disallow: /node_modules/
+Disallow: /functions/
+Disallow: /netlify/
+Disallow: /assets/img/
+Disallow: /*.json$
+
+# Sitemap location
+Sitemap: https://spendifyio.netlify.app/sitemap.xml
+
+# Specific rules for search engines
+User-agent: Googlebot
+Allow: /
+Crawl-delay: 0
+
+User-agent: Bingbot
+Allow: /
+Crawl-delay: 0
+
+User-agent: Slurp
+Allow: /
+Crawl-delay: 0
