@@ -1149,6 +1149,7 @@ async function signInGoogleSmart() {
 
   const current = auth.currentUser;
   const canLinkAnonymous = !!(current && current.isAnonymous);
+  const isMobile = isMobileAuthFlow();
 
   const runPopup = () => {
     if (canLinkAnonymous) return current.linkWithPopup(provider);
@@ -1160,6 +1161,11 @@ async function signInGoogleSmart() {
     return auth.signInWithRedirect(provider);
   };
 
+  if (isMobile) {
+    await runRedirect();
+    return;
+  }
+
   try {
     await runPopup();
   } catch (err) {
@@ -1170,7 +1176,7 @@ async function signInGoogleSmart() {
       "auth/popup-closed-by-user",
     ]);
 
-    if (popupFallbackCodes.has(String(err?.code || "")) || isMobileAuthFlow()) {
+    if (popupFallbackCodes.has(String(err?.code || ""))) {
       await runRedirect();
       return;
     }
