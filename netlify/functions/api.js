@@ -586,16 +586,19 @@ app.post("/api/payments/create", paymentLimiter, verifyFirebaseToken, async (req
             allDataFields: JSON.stringify(data, null, 2)
         });
 
-        await db.collection("payments").doc(referenceId).set({
+        const paymentDoc = {
             uid,
-            plan: plan || undefined,
-            type: type || undefined,
             method,
             amount,
             status: "pending",
             createdAt: Date.now(),
             expiresAt: Date.now() + (method === "boleto" ? 3 * 24 * 60 * 60 * 1000 : 24 * 60 * 60 * 1000)
-        });
+        };
+
+        if (plan) paymentDoc.plan = plan;
+        if (type) paymentDoc.type = type;
+
+        await db.collection("payments").doc(referenceId).set(paymentDoc);
 
         return res.status(200).json({
             success: true,
