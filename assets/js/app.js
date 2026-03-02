@@ -29,30 +29,6 @@ firebase.initializeApp(firebaseConfig);
 const auth = firebase.auth();
 const db = firebase.firestore();
 
-async function initAuthRuntime() {
-  try {
-    await auth.setPersistence(firebase.auth.Auth.Persistence.LOCAL);
-    return;
-  } catch (eLocal) {
-    console.warn("[Auth] LOCAL persistence indisponível:", eLocal?.code || eLocal);
-  }
-
-  try {
-    await auth.setPersistence(firebase.auth.Auth.Persistence.SESSION);
-    return;
-  } catch (eSession) {
-    console.warn("[Auth] SESSION persistence indisponível:", eSession?.code || eSession);
-  }
-
-  try {
-    await auth.setPersistence(firebase.auth.Auth.Persistence.NONE);
-  } catch (eNone) {
-    console.warn("[Auth] NONE persistence indisponível:", eNone?.code || eNone);
-  }
-}
-
-const authRuntimeReady = initAuthRuntime();
-
 let UID = null;
 
 // ================================
@@ -1116,28 +1092,28 @@ function showError(msg) {
 
 function markGoogleLoginPending() {
   try {
-    localStorage.setItem(GOOGLE_LOGIN_PENDING_KEY, String(Date.now()));
+    sessionStorage.setItem(GOOGLE_LOGIN_PENDING_KEY, String(Date.now()));
   } catch { }
 }
 
 function clearGoogleLoginPending() {
   try {
-    localStorage.removeItem(GOOGLE_LOGIN_PENDING_KEY);
+    sessionStorage.removeItem(GOOGLE_LOGIN_PENDING_KEY);
   } catch { }
 }
 
 function hasGoogleLoginPending() {
   try {
-    const raw = localStorage.getItem(GOOGLE_LOGIN_PENDING_KEY);
+    const raw = sessionStorage.getItem(GOOGLE_LOGIN_PENDING_KEY);
     if (!raw) return false;
     const ts = Number(raw);
     if (!Number.isFinite(ts)) {
-      localStorage.removeItem(GOOGLE_LOGIN_PENDING_KEY);
+      sessionStorage.removeItem(GOOGLE_LOGIN_PENDING_KEY);
       return false;
     }
     const maxAgeMs = 5 * 60 * 1000;
     if (Date.now() - ts > maxAgeMs) {
-      localStorage.removeItem(GOOGLE_LOGIN_PENDING_KEY);
+      sessionStorage.removeItem(GOOGLE_LOGIN_PENDING_KEY);
       return false;
     }
     return true;
@@ -1173,7 +1149,6 @@ async function signInGoogleSmart() {
 
   const current = auth.currentUser;
   const canLinkAnonymous = !!(current && current.isAnonymous);
-  const isMobile = isMobileAuthFlow();
 
   const runPopup = () => {
     if (canLinkAnonymous) return current.linkWithPopup(provider);
@@ -1185,11 +1160,6 @@ async function signInGoogleSmart() {
     return auth.signInWithRedirect(provider);
   };
 
-  if (isMobile) {
-    await runRedirect();
-    return;
-  }
-
   try {
     await runPopup();
   } catch (err) {
@@ -1200,7 +1170,7 @@ async function signInGoogleSmart() {
       "auth/popup-closed-by-user",
     ]);
 
-    if (popupFallbackCodes.has(String(err?.code || ""))) {
+    if (popupFallbackCodes.has(String(err?.code || "")) || isMobileAuthFlow()) {
       await runRedirect();
       return;
     }
@@ -1213,7 +1183,6 @@ async function signInGoogleSmart() {
 // ================================
 btnGoogle?.addEventListener("click", async () => {
   try {
-    await authRuntimeReady;
     showError("");
     markGoogleLoginPending();
     await signInGoogleSmart();
@@ -1223,24 +1192,22 @@ btnGoogle?.addEventListener("click", async () => {
   }
 });
 
-(async () => {
-  try {
-    await authRuntimeReady;
-    const result = await auth.getRedirectResult();
+auth.getRedirectResult()
+  .then((result) => {
     if (result?.user) {
       clearGoogleLoginPending();
       return;
     }
     if (hasGoogleLoginPending()) {
       showAuth();
-      showError("Não foi possível concluir o login com Google. Verifique cookies/dados do site no navegador e tente novamente.");
+      showError("Não foi possível concluir o login com Google. Verifique se este domínio está autorizado no Firebase e tente novamente.");
     }
-  } catch (e) {
+  })
+  .catch((e) => {
     clearGoogleLoginPending();
     showAuth();
     showError(authErrorMessage(e));
-  }
-})();
+  });
 
 // ================================
 // Email Login
