@@ -10,9 +10,14 @@ const btnProfile = document.getElementById("btnProfile");
 // ================================
 // Firebase init (COMPAT)
 // ================================
+const isLocalAuthHost = ["localhost", "127.0.0.1"].includes(window.location.hostname);
+const firebaseAuthDomain = isLocalAuthHost
+  ? "salary-saas.firebaseapp.com"
+  : window.location.hostname;
+
 const firebaseConfig = {
   apiKey: "AIzaSyDmbZCCR58Fa2g5x2y4pLC0YZrxurtwqg8",
-  authDomain: "salary-saas.firebaseapp.com",
+  authDomain: firebaseAuthDomain,
   projectId: "salary-saas",
   storageBucket: "salary-saas.firebasestorage.app",
   messagingSenderId: "32860095863",
@@ -964,6 +969,7 @@ const homeView = document.getElementById("homeView");
 const btnPlans = document.getElementById("btnPlans");
 const btnOpenLogin = document.getElementById("btnOpenLogin");
 let PENDING_PLAN = null;
+const GOOGLE_LOGIN_PENDING_KEY = "spendify_google_login_pending";
 
 const loginEmail = document.getElementById("loginEmail");
 const loginPassword = document.getElementById("loginPassword");
@@ -1029,6 +1035,8 @@ async function showApp(user) {
   appView.classList.remove("d-none");
   navAuthed.classList.remove("d-none");
   if (homeView) homeView.classList.add("d-none");
+  const pendingView = document.getElementById("paymentPendingView");
+  if (pendingView) pendingView.classList.add("d-none");
   const mainNavbar = document.getElementById("mainNavbar");
   if (mainNavbar) mainNavbar.classList.remove("d-none");
 
@@ -1073,8 +1081,101 @@ async function showApp(user) {
 
 
 function showError(msg) {
+  if (!msg) {
+    authMsg.textContent = "";
+    authMsg.classList.add("d-none");
+    return;
+  }
   authMsg.textContent = msg;
   authMsg.classList.remove("d-none");
+}
+
+function markGoogleLoginPending() {
+  try {
+    sessionStorage.setItem(GOOGLE_LOGIN_PENDING_KEY, String(Date.now()));
+  } catch { }
+}
+
+function clearGoogleLoginPending() {
+  try {
+    sessionStorage.removeItem(GOOGLE_LOGIN_PENDING_KEY);
+  } catch { }
+}
+
+function hasGoogleLoginPending() {
+  try {
+    const raw = sessionStorage.getItem(GOOGLE_LOGIN_PENDING_KEY);
+    if (!raw) return false;
+    const ts = Number(raw);
+    if (!Number.isFinite(ts)) {
+      sessionStorage.removeItem(GOOGLE_LOGIN_PENDING_KEY);
+      return false;
+    }
+    const maxAgeMs = 5 * 60 * 1000;
+    if (Date.now() - ts > maxAgeMs) {
+      sessionStorage.removeItem(GOOGLE_LOGIN_PENDING_KEY);
+      return false;
+    }
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+function authErrorMessage(err) {
+  const code = String(err?.code || "");
+
+  if (code === "auth/popup-closed-by-user") return "Login cancelado.";
+  if (code === "auth/popup-blocked") return "O navegador bloqueou a janela de login. Tentando redirecionamento...";
+  if (code === "auth/network-request-failed") return "Falha de conexão. Verifique sua internet e tente novamente.";
+  if (code === "auth/web-storage-unsupported") return "Seu navegador está bloqueando armazenamento local. Ative cookies/dados do site e tente novamente.";
+  if (code === "auth/operation-not-supported-in-this-environment") return "Este navegador/ambiente não suporta login com popup. Abra no Chrome/Safari normal e tente novamente.";
+  if (code === "auth/unauthorized-domain") return "Domínio não autorizado no Firebase Auth. Adicione este domínio em Authentication > Settings > Authorized domains.";
+
+  if (code) return `Não foi possível entrar com Google (${code}).`;
+  return err?.message || "Não foi possível entrar com Google.";
+}
+
+function isMobileAuthFlow() {
+  const ua = navigator.userAgent || "";
+  const mobileByUa = /Android|iPhone|iPad|iPod|IEMobile|Opera Mini/i.test(ua);
+  const coarsePointer = typeof window.matchMedia === "function" && window.matchMedia("(pointer: coarse)").matches;
+  return mobileByUa || coarsePointer;
+}
+
+async function signInGoogleSmart() {
+  const provider = new firebase.auth.GoogleAuthProvider();
+  provider.setCustomParameters({ prompt: "select_account" });
+
+  const current = auth.currentUser;
+  const canLinkAnonymous = !!(current && current.isAnonymous);
+
+  const runPopup = () => {
+    if (canLinkAnonymous) return current.linkWithPopup(provider);
+    return auth.signInWithPopup(provider);
+  };
+
+  const runRedirect = () => {
+    if (canLinkAnonymous) return current.linkWithRedirect(provider);
+    return auth.signInWithRedirect(provider);
+  };
+
+  try {
+    await runPopup();
+  } catch (err) {
+    const popupFallbackCodes = new Set([
+      "auth/popup-blocked",
+      "auth/operation-not-supported-in-this-environment",
+      "auth/cancelled-popup-request",
+      "auth/popup-closed-by-user",
+    ]);
+
+    if (popupFallbackCodes.has(String(err?.code || "")) || isMobileAuthFlow()) {
+      await runRedirect();
+      return;
+    }
+    throw err;
+  }
 }
 
 // ================================
@@ -1082,12 +1183,31 @@ function showError(msg) {
 // ================================
 btnGoogle?.addEventListener("click", async () => {
   try {
-    const provider = new firebase.auth.GoogleAuthProvider();
-    await auth.signInWithPopup(provider);
+    showError("");
+    markGoogleLoginPending();
+    await signInGoogleSmart();
   } catch (e) {
-    showError(e.message);
+    clearGoogleLoginPending();
+    showError(authErrorMessage(e));
   }
 });
+
+auth.getRedirectResult()
+  .then((result) => {
+    if (result?.user) {
+      clearGoogleLoginPending();
+      return;
+    }
+    if (hasGoogleLoginPending()) {
+      showAuth();
+      showError("Não foi possível concluir o login com Google. Verifique se este domínio está autorizado no Firebase e tente novamente.");
+    }
+  })
+  .catch((e) => {
+    clearGoogleLoginPending();
+    showAuth();
+    showError(authErrorMessage(e));
+  });
 
 // ================================
 // Email Login
@@ -1849,6 +1969,7 @@ async function bootApp() {
 
 auth.onAuthStateChanged(async (user) => {
   if (user) {
+    clearGoogleLoginPending();
     UID = user.uid;
     const s = await fbLoadSettings();
     state.config = s || {};
@@ -1880,12 +2001,6 @@ auth.onAuthStateChanged(async (user) => {
       }
     }
 
-    // Se não tem plano, mostra tela de pagamento pendente
-    if (plan !== "basic" && plan !== "pro" && plan !== "family") {
-      showPaymentPending(user);
-      return;
-    }
-
     showApp(user);
 
     try { await upsertUserProfile(user); } catch (e) { console.warn(e); }
@@ -1899,6 +2014,11 @@ auth.onAuthStateChanged(async (user) => {
     try { await runProjections(); } catch { }
     try { syncGoalUI(); } catch { }
   } else {
+    if (hasGoogleLoginPending()) {
+      showAuth();
+      showError("Login com Google não foi concluído. Tente novamente e confirme os domínios autorizados no Firebase.");
+      return;
+    }
     didBoot = false;
     UID = null;
     showHome();

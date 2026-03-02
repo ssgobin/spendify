@@ -14,6 +14,12 @@
   status = 200
   force = true
 
+[[redirects]]
+  from = "/__/auth/*"
+  to = "https://salary-saas.firebaseapp.com/__/auth/:splat"
+  status = 200
+  force = true
+
 # Redireciona HTTP para HTTPS (SEO)
 [[redirects]]
   from = "http://*"
@@ -45,7 +51,7 @@
     Permissions-Policy = "geolocation=(), microphone=(), camera=()"
     
     # Content Security Policy (leve - ajustar conforme necessário)
-    Content-Security-Policy = "default-src 'self' https:; script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://cdnjs.cloudflare.com https://www.gstatic.com https://apis.google.com https://firebaseapp.com https://firebase.google.com; style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://cdnjs.cloudflare.com https://fonts.googleapis.com; font-src 'self' data: https://fonts.gstatic.com https://cdnjs.cloudflare.com; img-src 'self' data: https: blob:; connect-src 'self' https: wss:; frame-src https://firebaseapp.com https://firebase.google.com,"
+    Content-Security-Policy = "default-src 'self' https:; script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://cdnjs.cloudflare.com https://www.gstatic.com https://apis.google.com https://www.googleapis.com https://firebase.google.com https://*.firebaseapp.com; style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://cdnjs.cloudflare.com https://fonts.googleapis.com; font-src 'self' data: https://fonts.gstatic.com https://cdnjs.cloudflare.com; img-src 'self' data: https: blob:; connect-src 'self' https: wss: https://identitytoolkit.googleapis.com https://securetoken.googleapis.com https://firestore.googleapis.com https://www.googleapis.com; frame-src 'self' https://*.firebaseapp.com https://firebase.google.com https://accounts.google.com https://*.google.com"
     
     # SEO Headers
     Cache-Control = "public, max-age=3600"
