@@ -14,12 +14,6 @@
   status = 200
   force = true
 
-[[redirects]]
-  from = "/__/auth/*"
-  to = "https://salary-saas.firebaseapp.com/__/auth/:splat"
-  status = 200
-  force = true
-
 # Redireciona HTTP para HTTPS (SEO)
 [[redirects]]
   from = "http://*"

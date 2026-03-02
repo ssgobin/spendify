@@ -10,14 +10,9 @@ const btnProfile = document.getElementById("btnProfile");
 // ================================
 // Firebase init (COMPAT)
 // ================================
-const isLocalAuthHost = ["localhost", "127.0.0.1"].includes(window.location.hostname);
-const firebaseAuthDomain = isLocalAuthHost
-  ? "salary-saas.firebaseapp.com"
-  : window.location.hostname;
-
 const firebaseConfig = {
   apiKey: "AIzaSyDmbZCCR58Fa2g5x2y4pLC0YZrxurtwqg8",
-  authDomain: firebaseAuthDomain,
+  authDomain: "salary-saas.firebaseapp.com",
   projectId: "salary-saas",
   storageBucket: "salary-saas.firebasestorage.app",
   messagingSenderId: "32860095863",
@@ -969,7 +964,6 @@ const homeView = document.getElementById("homeView");
 const btnPlans = document.getElementById("btnPlans");
 const btnOpenLogin = document.getElementById("btnOpenLogin");
 let PENDING_PLAN = null;
-const GOOGLE_LOGIN_PENDING_KEY = "spendify_google_login_pending";
 
 const loginEmail = document.getElementById("loginEmail");
 const loginPassword = document.getElementById("loginPassword");
@@ -1090,38 +1084,6 @@ function showError(msg) {
   authMsg.classList.remove("d-none");
 }
 
-function markGoogleLoginPending() {
-  try {
-    sessionStorage.setItem(GOOGLE_LOGIN_PENDING_KEY, String(Date.now()));
-  } catch { }
-}
-
-function clearGoogleLoginPending() {
-  try {
-    sessionStorage.removeItem(GOOGLE_LOGIN_PENDING_KEY);
-  } catch { }
-}
-
-function hasGoogleLoginPending() {
-  try {
-    const raw = sessionStorage.getItem(GOOGLE_LOGIN_PENDING_KEY);
-    if (!raw) return false;
-    const ts = Number(raw);
-    if (!Number.isFinite(ts)) {
-      sessionStorage.removeItem(GOOGLE_LOGIN_PENDING_KEY);
-      return false;
-    }
-    const maxAgeMs = 5 * 60 * 1000;
-    if (Date.now() - ts > maxAgeMs) {
-      sessionStorage.removeItem(GOOGLE_LOGIN_PENDING_KEY);
-      return false;
-    }
-    return true;
-  } catch {
-    return false;
-  }
-}
-
 function authErrorMessage(err) {
   const code = String(err?.code || "");
 
@@ -1147,31 +1109,22 @@ async function signInGoogleSmart() {
   const provider = new firebase.auth.GoogleAuthProvider();
   provider.setCustomParameters({ prompt: "select_account" });
 
-  const current = auth.currentUser;
-  const canLinkAnonymous = !!(current && current.isAnonymous);
-
-  const runPopup = () => {
-    if (canLinkAnonymous) return current.linkWithPopup(provider);
-    return auth.signInWithPopup(provider);
-  };
-
-  const runRedirect = () => {
-    if (canLinkAnonymous) return current.linkWithRedirect(provider);
-    return auth.signInWithRedirect(provider);
-  };
+  if (isMobileAuthFlow()) {
+    await auth.signInWithRedirect(provider);
+    return;
+  }
 
   try {
-    await runPopup();
+    await auth.signInWithPopup(provider);
   } catch (err) {
     const popupFallbackCodes = new Set([
       "auth/popup-blocked",
       "auth/operation-not-supported-in-this-environment",
       "auth/cancelled-popup-request",
-      "auth/popup-closed-by-user",
     ]);
 
-    if (popupFallbackCodes.has(String(err?.code || "")) || isMobileAuthFlow()) {
-      await runRedirect();
+    if (popupFallbackCodes.has(String(err?.code || ""))) {
+      await auth.signInWithRedirect(provider);
       return;
     }
     throw err;
@@ -1184,30 +1137,15 @@ async function signInGoogleSmart() {
 btnGoogle?.addEventListener("click", async () => {
   try {
     showError("");
-    markGoogleLoginPending();
     await signInGoogleSmart();
   } catch (e) {
-    clearGoogleLoginPending();
     showError(authErrorMessage(e));
   }
 });
 
-auth.getRedirectResult()
-  .then((result) => {
-    if (result?.user) {
-      clearGoogleLoginPending();
-      return;
-    }
-    if (hasGoogleLoginPending()) {
-      showAuth();
-      showError("Não foi possível concluir o login com Google. Verifique se este domínio está autorizado no Firebase e tente novamente.");
-    }
-  })
-  .catch((e) => {
-    clearGoogleLoginPending();
-    showAuth();
-    showError(authErrorMessage(e));
-  });
+auth.getRedirectResult().catch((e) => {
+  showError(authErrorMessage(e));
+});
 
 // ================================
 // Email Login
@@ -1969,7 +1907,6 @@ async function bootApp() {
 
 auth.onAuthStateChanged(async (user) => {
   if (user) {
-    clearGoogleLoginPending();
     UID = user.uid;
     const s = await fbLoadSettings();
     state.config = s || {};
@@ -2014,11 +1951,6 @@ auth.onAuthStateChanged(async (user) => {
     try { await runProjections(); } catch { }
     try { syncGoalUI(); } catch { }
   } else {
-    if (hasGoogleLoginPending()) {
-      showAuth();
-      showError("Login com Google não foi concluído. Tente novamente e confirme os domínios autorizados no Firebase.");
-      return;
-    }
     didBoot = false;
     UID = null;
     showHome();
