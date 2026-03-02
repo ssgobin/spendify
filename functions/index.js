@@ -180,6 +180,54 @@ app.use("/admin", adminLimiter);
 app.use(express.json({ limit: "10kb" })); // Limitar tamanho do JSON
 app.use(express.urlencoded({ extended: true, limit: "10kb" }));
 
+function normalizeBrazilianDocument(value = "") {
+  return String(value || "").replace(/\D/g, "");
+}
+
+function isValidCPF(value = "") {
+  const cpf = normalizeBrazilianDocument(value);
+  if (!/^\d{11}$/.test(cpf)) return false;
+  if (/^(\d)\1{10}$/.test(cpf)) return false;
+
+  let sum = 0;
+  for (let i = 0; i < 9; i++) sum += Number(cpf[i]) * (10 - i);
+  let digit = (sum * 10) % 11;
+  if (digit === 10) digit = 0;
+  if (digit !== Number(cpf[9])) return false;
+
+  sum = 0;
+  for (let i = 0; i < 10; i++) sum += Number(cpf[i]) * (11 - i);
+  digit = (sum * 10) % 11;
+  if (digit === 10) digit = 0;
+  return digit === Number(cpf[10]);
+}
+
+function isValidCNPJ(value = "") {
+  const cnpj = normalizeBrazilianDocument(value);
+  if (!/^\d{14}$/.test(cnpj)) return false;
+  if (/^(\d)\1{13}$/.test(cnpj)) return false;
+
+  const weights1 = [5, 4, 3, 2, 9, 8, 7, 6, 5, 4, 3, 2];
+  const weights2 = [6, 5, 4, 3, 2, 9, 8, 7, 6, 5, 4, 3, 2];
+
+  let sum = 0;
+  for (let i = 0; i < 12; i++) sum += Number(cnpj[i]) * weights1[i];
+  let digit = sum % 11 < 2 ? 0 : 11 - (sum % 11);
+  if (digit !== Number(cnpj[12])) return false;
+
+  sum = 0;
+  for (let i = 0; i < 13; i++) sum += Number(cnpj[i]) * weights2[i];
+  digit = sum % 11 < 2 ? 0 : 11 - (sum % 11);
+  return digit === Number(cnpj[13]);
+}
+
+function isValidBrazilianDocument(value = "") {
+  const normalized = normalizeBrazilianDocument(value);
+  if (normalized.length === 11) return isValidCPF(normalized);
+  if (normalized.length === 14) return isValidCNPJ(normalized);
+  return false;
+}
+
 // ================================
 // SECURITY: Validação de Schemas
 // ================================
@@ -191,7 +239,14 @@ const paymentSchema = Joi.object({
   customer: Joi.object({
     email: Joi.string().email().required().max(100).lowercase().trim(),
     name: Joi.string().required().min(3).max(100).trim(),
-    document: Joi.string().pattern(/^\d{11,14}$/).required().trim()
+    document: Joi.string().required().trim().custom((value, helpers) => {
+      if (!isValidBrazilianDocument(value)) {
+        return helpers.error("any.invalid");
+      }
+      return normalizeBrazilianDocument(value);
+    }, "CPF/CNPJ validation").messages({
+      "any.invalid": "customer.document deve ser um CPF ou CNPJ válido"
+    })
   }).required()
 }).options({ stripUnknown: true });
 
@@ -281,6 +336,7 @@ app.post("/payments/create", paymentLimiter, verifyFirebaseToken, async (req, re
     }
 
     const { uid, plan, method, customer } = value;
+    const customerDocument = normalizeBrazilianDocument(customer.document);
 
     // SECURITY: Verificar se o UID é do usuário autenticado
     if (uid !== req.user.uid) {
@@ -316,7 +372,7 @@ app.post("/payments/create", paymentLimiter, verifyFirebaseToken, async (req, re
         value_cents: Math.round(amount * 100),
         payer_email: customer.email,
         payer_name: customer.name,
-        payer_cpf_cnpj: customer.document,
+        payer_cpf_cnpj: customerDocument,
         days_due_date: 3,
         fixed_description: true,
         description: `Spendify ${plan}`,
@@ -329,7 +385,7 @@ app.post("/payments/create", paymentLimiter, verifyFirebaseToken, async (req, re
         order_id: referenceId,
         payer_email: customer.email,
         payer_name: customer.name,
-        payer_cpf_cnpj: customer.document,
+        payer_cpf_cnpj: customerDocument,
         notification_url: process.env.PAGHIPER_WEBHOOK_URL,
         fixed_description: true,
         description: `Plano ${plan} - Spendify`,

@@ -219,6 +219,54 @@ app.use("/api/admin", adminLimiter);
 app.use(express.json({ limit: "10kb" }));
 app.use(express.urlencoded({ extended: true, limit: "10kb" }));
 
+function normalizeBrazilianDocument(value = "") {
+    return String(value || "").replace(/\D/g, "");
+}
+
+function isValidCPF(value = "") {
+    const cpf = normalizeBrazilianDocument(value);
+    if (!/^\d{11}$/.test(cpf)) return false;
+    if (/^(\d)\1{10}$/.test(cpf)) return false;
+
+    let sum = 0;
+    for (let i = 0; i < 9; i++) sum += Number(cpf[i]) * (10 - i);
+    let digit = (sum * 10) % 11;
+    if (digit === 10) digit = 0;
+    if (digit !== Number(cpf[9])) return false;
+
+    sum = 0;
+    for (let i = 0; i < 10; i++) sum += Number(cpf[i]) * (11 - i);
+    digit = (sum * 10) % 11;
+    if (digit === 10) digit = 0;
+    return digit === Number(cpf[10]);
+}
+
+function isValidCNPJ(value = "") {
+    const cnpj = normalizeBrazilianDocument(value);
+    if (!/^\d{14}$/.test(cnpj)) return false;
+    if (/^(\d)\1{13}$/.test(cnpj)) return false;
+
+    const weights1 = [5, 4, 3, 2, 9, 8, 7, 6, 5, 4, 3, 2];
+    const weights2 = [6, 5, 4, 3, 2, 9, 8, 7, 6, 5, 4, 3, 2];
+
+    let sum = 0;
+    for (let i = 0; i < 12; i++) sum += Number(cnpj[i]) * weights1[i];
+    let digit = sum % 11 < 2 ? 0 : 11 - (sum % 11);
+    if (digit !== Number(cnpj[12])) return false;
+
+    sum = 0;
+    for (let i = 0; i < 13; i++) sum += Number(cnpj[i]) * weights2[i];
+    digit = sum % 11 < 2 ? 0 : 11 - (sum % 11);
+    return digit === Number(cnpj[13]);
+}
+
+function isValidBrazilianDocument(value = "") {
+    const normalized = normalizeBrazilianDocument(value);
+    if (normalized.length === 11) return isValidCPF(normalized);
+    if (normalized.length === 14) return isValidCNPJ(normalized);
+    return false;
+}
+
 // ================================
 // SECURITY: Validação de Schemas
 // ================================
@@ -230,7 +278,14 @@ const paymentSchema = Joi.object({
     customer: Joi.object({
         email: Joi.string().email().required().max(100).lowercase().trim(),
         name: Joi.string().required().min(3).max(100).trim(),
-        document: Joi.string().pattern(/^\d{11,14}$/).required().trim()
+        document: Joi.string().required().trim().custom((value, helpers) => {
+            if (!isValidBrazilianDocument(value)) {
+                return helpers.error("any.invalid");
+            }
+            return normalizeBrazilianDocument(value);
+        }, "CPF/CNPJ validation").messages({
+            "any.invalid": "customer.document deve ser um CPF ou CNPJ válido"
+        })
     }).required()
 }).xor("plan", "type").required().options({ stripUnknown: true });
 
@@ -383,6 +438,7 @@ app.post("/api/payments/create", paymentLimiter, verifyFirebaseToken, async (req
         }
 
         const { uid, plan, type, method, customer } = value;
+        const customerDocument = normalizeBrazilianDocument(customer.document);
         const planOrType = plan || type || "";
 
         if (uid !== req.user.uid) {
@@ -423,7 +479,7 @@ app.post("/api/payments/create", paymentLimiter, verifyFirebaseToken, async (req
                 value_cents: Math.round(amount * 100),
                 payer_email: customer.email,
                 payer_name: customer.name,
-                payer_cpf_cnpj: customer.document,
+                payer_cpf_cnpj: customerDocument,
                 days_due_date: 3,
                 fixed_description: true,
                 description: boletoDesc,
@@ -436,7 +492,7 @@ app.post("/api/payments/create", paymentLimiter, verifyFirebaseToken, async (req
                 order_id: referenceId,
                 payer_email: customer.email,
                 payer_name: customer.name,
-                payer_cpf_cnpj: customer.document,
+                payer_cpf_cnpj: customerDocument,
                 notification_url: process.env.PAGHIPER_WEBHOOK_URL,
                 fixed_description: true,
                 description: `${desc} - Spendify`,
@@ -451,7 +507,13 @@ app.post("/api/payments/create", paymentLimiter, verifyFirebaseToken, async (req
                 ]
             };
         }
-        if (!url) return res.status(500).json({ error: "endpoint_not_configured" });
+        if (!url) return res.status(500).json({ error: "endpoint_not_configured", message: `URL de pagamento não configurada para método ${mth}` });
+        if (!/^https?:\/\//i.test(String(url))) {
+            return res.status(500).json({
+                error: "payment_gateway_config_invalid",
+                message: `URL do gateway inválida para método ${mth}`
+            });
+        }
 
         safeLog("Payment", { url, method: mth, amount, uid });
 
@@ -545,21 +607,51 @@ app.post("/api/payments/create", paymentLimiter, verifyFirebaseToken, async (req
             boletoUrl: mth === "boleto" ? boletoUrl : null
         });
     } catch (e) {
-        const errorMsg = e.message || "Unknown error";
         const errorStatus = e.response?.status || 500;
-        const responseData = e.response?.data || {};
+        const responseData = e.response?.data;
+        const responseDataObj = typeof responseData === "object" && responseData !== null ? responseData : {};
+        const rawResponse = typeof responseData === "string" ? responseData : "";
 
         console.error("[Payment] Erro:", {
             status: errorStatus,
             error: e.code,
+            message: e.message,
             url: e.config?.url,
-            responseData: JSON.stringify(responseData)
+            responseData: typeof responseData === "string" ? responseData : JSON.stringify(responseData || {})
         });
 
+        if (e.code === "ECONNABORTED") {
+            return res.status(504).json({
+                error: "payment_gateway_timeout",
+                message: "Gateway de pagamento demorou para responder"
+            });
+        }
+
+        if (!e.response && ["ENOTFOUND", "ECONNREFUSED", "EAI_AGAIN", "ECONNRESET"].includes(e.code)) {
+            return res.status(502).json({
+                error: "payment_gateway_unreachable",
+                message: "Não foi possível conectar ao gateway de pagamento"
+            });
+        }
+
         // Se o erro veio do PagHiper, retornar a mensagem específica
-        const paghiperError = responseData?.pix_create_request?.response_message ||
-            responseData?.create_request?.response_message ||
-            responseData?.message;
+        let parsedRaw = null;
+        if (rawResponse) {
+            try { parsedRaw = JSON.parse(rawResponse); } catch { parsedRaw = null; }
+        }
+
+        const fallbackObj = parsedRaw || {};
+
+        const paghiperError = responseDataObj?.pix_create_request?.response_message ||
+            responseDataObj?.create_request?.response_message ||
+            responseDataObj?.response_message ||
+            responseDataObj?.message ||
+            fallbackObj?.pix_create_request?.response_message ||
+            fallbackObj?.create_request?.response_message ||
+            fallbackObj?.response_message ||
+            fallbackObj?.message ||
+            (rawResponse && rawResponse.length < 300 ? rawResponse : null) ||
+            e.message;
 
         return res.status(errorStatus >= 400 && errorStatus < 600 ? errorStatus : 500).json({
             error: "payment_creation_failed",

@@ -58,6 +58,65 @@ async function uiAlert(opts) {
   alert((opts.title ? opts.title + "\n\n" : "") + (opts.text || ""));
 }
 
+function normalizeBrazilianDocument(value = "") {
+  return String(value || "").replace(/\D/g, "");
+}
+
+function formatBrazilianDocument(value = "") {
+  const normalized = normalizeBrazilianDocument(value);
+  if (normalized.length === 11) {
+    return normalized.replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, "$1.$2.$3-$4");
+  }
+  if (normalized.length === 14) {
+    return normalized.replace(/(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})/, "$1.$2.$3/$4-$5");
+  }
+  return String(value || "").trim();
+}
+
+function isValidCPF(value = "") {
+  const cpf = normalizeBrazilianDocument(value);
+  if (!/^\d{11}$/.test(cpf)) return false;
+  if (/^(\d)\1{10}$/.test(cpf)) return false;
+
+  let sum = 0;
+  for (let i = 0; i < 9; i++) sum += Number(cpf[i]) * (10 - i);
+  let digit = (sum * 10) % 11;
+  if (digit === 10) digit = 0;
+  if (digit !== Number(cpf[9])) return false;
+
+  sum = 0;
+  for (let i = 0; i < 10; i++) sum += Number(cpf[i]) * (11 - i);
+  digit = (sum * 10) % 11;
+  if (digit === 10) digit = 0;
+  return digit === Number(cpf[10]);
+}
+
+function isValidCNPJ(value = "") {
+  const cnpj = normalizeBrazilianDocument(value);
+  if (!/^\d{14}$/.test(cnpj)) return false;
+  if (/^(\d)\1{13}$/.test(cnpj)) return false;
+
+  const weights1 = [5, 4, 3, 2, 9, 8, 7, 6, 5, 4, 3, 2];
+  const weights2 = [6, 5, 4, 3, 2, 9, 8, 7, 6, 5, 4, 3, 2];
+
+  let sum = 0;
+  for (let i = 0; i < 12; i++) sum += Number(cnpj[i]) * weights1[i];
+  let digit = sum % 11 < 2 ? 0 : 11 - (sum % 11);
+  if (digit !== Number(cnpj[12])) return false;
+
+  sum = 0;
+  for (let i = 0; i < 13; i++) sum += Number(cnpj[i]) * weights2[i];
+  digit = sum % 11 < 2 ? 0 : 11 - (sum % 11);
+  return digit === Number(cnpj[13]);
+}
+
+function isValidBrazilianDocument(value = "") {
+  const normalized = normalizeBrazilianDocument(value);
+  if (normalized.length === 11) return isValidCPF(normalized);
+  if (normalized.length === 14) return isValidCNPJ(normalized);
+  return false;
+}
+
 function applyTheme() {
   const dark = !!state.config.darkMode;
   document.body.classList.toggle("dark-mode", dark);
@@ -1067,7 +1126,7 @@ btnEmailSignup?.addEventListener("click", async () => {
     await db.collection("users").doc(uid).set(
       {
         name: fullName,
-        document: cpf,
+        document: formatBrazilianDocument(cpf),
         email: loginEmail.value,
         uid: uid,
         createdAt: firebase.firestore.FieldValue.serverTimestamp(),
@@ -1117,6 +1176,11 @@ async function getSignupData() {
           return false;
         }
 
+        if (!isValidBrazilianDocument(doc)) {
+          Swal.showValidationMessage("Informe um CPF ou CNPJ válido");
+          return false;
+        }
+
         return { name, doc };
       },
     });
@@ -1133,6 +1197,10 @@ async function getSignupData() {
     cpf = prompt("CPF ou CNPJ:")?.trim() || "";
     if (!cpf) {
       alert("Por favor, informe seu CPF ou CNPJ.");
+      return null;
+    }
+    if (!isValidBrazilianDocument(cpf)) {
+      alert("Por favor, informe um CPF ou CNPJ válido.");
       return null;
     }
   }
@@ -1210,7 +1278,7 @@ async function createPaymentFlow(plan) {
   }
 
   // Se não tem nome ou CPF salvo, pede para preencher
-  if (!fullName || !cpf) {
+  if (!fullName || !cpf || !isValidBrazilianDocument(cpf)) {
     if (window.Swal && Swal.fire) {
       const res = await Swal.fire({
         title: "Dados para pagamento",
@@ -1240,6 +1308,11 @@ async function createPaymentFlow(plan) {
             return false;
           }
 
+          if (!isValidBrazilianDocument(doc)) {
+            Swal.showValidationMessage("Informe um CPF ou CNPJ válido");
+            return false;
+          }
+
           return { name, doc };
         },
       });
@@ -1254,7 +1327,7 @@ async function createPaymentFlow(plan) {
         await db.collection("users").doc(cur.uid).set(
           {
             name: fullName,
-            document: cpf,
+            document: formatBrazilianDocument(cpf),
             updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
           },
           { merge: true }
@@ -1267,12 +1340,11 @@ async function createPaymentFlow(plan) {
     }
   }
 
-  // Backend valida somente números (11 a 14 dígitos)
-  const cleanDocument = String(cpf).replace(/\D/g, "");
-  if (!/^\d{11,14}$/.test(cleanDocument)) {
+  const cleanDocument = normalizeBrazilianDocument(cpf);
+  if (!isValidBrazilianDocument(cleanDocument)) {
     await uiAlert({
       title: "Documento inválido",
-      text: "Informe um CPF ou CNPJ válido (somente números ou com máscara).",
+      text: "Informe um CPF ou CNPJ válido para continuar.",
       icon: "warning"
     });
     return;
