@@ -3295,8 +3295,18 @@ async function onDelete(id) {
   deleteEntryLocal(mKey, id);
   renderAll();
 
+  // Rastreia se o undo foi clicado
+  let undoWasExecuted = false;
+
   // agenda commit definitivo em 5s
   const timer = setTimeout(async () => {
+    // Se o undo foi clicado, não delete do Firebase
+    if (undoWasExecuted) {
+      console.log("onDelete: Undo foi clicado, deletação cancelada");
+      pendingDelete.delete(id);
+      return;
+    }
+
     await safeRun("excluir lançamento", async () => {
       try {
         await fbDeleteTx(id);
@@ -3337,6 +3347,10 @@ async function onDelete(id) {
         showToast("warning", "Não foi possível desfazer", 2000);
         return;
       }
+      
+      // Marca que undo foi executado para cancelar a deletação do Firebase
+      undoWasExecuted = true;
+      
       clearTimeout(p.timer);
       upsertEntryLocal(p.mKey, p.entry);
       pendingDelete.delete(id);
