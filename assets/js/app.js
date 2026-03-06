@@ -3307,6 +3307,11 @@ async function onDelete(id) {
   });
   if (!ok) return;
 
+  // Se for instância recorrente, não recria novamente neste mês.
+  if (e.recurring && e.instanceOf) {
+    await markRecurringSkippedForMonth(mKey, e.instanceOf);
+  }
+
   // Cópia profunda para rollback confiável em caso de falha no backend
   const entryCopy = JSON.parse(JSON.stringify(e));
 
@@ -3507,11 +3512,6 @@ async function ensureRecurringForMonth(mKey) {
 
     batch.set(col.doc(entry.id), entry, { merge: true });
     wrote++;
-
-    // Se for instância recorrente, marca o template como "não gerar" neste mês.
-    if (e.recurring && e.instanceOf) {
-      await markRecurringSkippedForMonth(mKey, e.instanceOf);
-    }
   }
 
   if (wrote > 0) await batch.commit();
