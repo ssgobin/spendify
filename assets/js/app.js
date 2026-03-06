@@ -2109,6 +2109,31 @@ let state = {
   months: {},
 };
 
+function getRecurringSkipSetForMonth(mKey) {
+  const skippedByMonth = state.config?.recurringSkipped || {};
+  const raw = skippedByMonth[mKey];
+  if (!Array.isArray(raw)) return new Set();
+  return new Set(raw.map((x) => String(x || "").trim()).filter(Boolean));
+}
+
+async function markRecurringSkippedForMonth(mKey, templateId) {
+  const tId = String(templateId || "").trim();
+  if (!mKey || !tId) return;
+
+  const skippedByMonth = { ...(state.config.recurringSkipped || {}) };
+  const monthList = Array.isArray(skippedByMonth[mKey]) ? skippedByMonth[mKey] : [];
+  const set = new Set(monthList.map((x) => String(x || "").trim()).filter(Boolean));
+  set.add(tId);
+
+  skippedByMonth[mKey] = [...set];
+  state.config.recurringSkipped = skippedByMonth;
+
+  await fbSaveSettings({
+    recurringSkipped: skippedByMonth,
+    updatedAt: Date.now(),
+  });
+}
+
 // Expõe state globalmente para módulos externos (como ai-integration.js)
 window.appState = state;
 
@@ -3442,6 +3467,7 @@ async function ensureRecurringForMonth(mKey) {
 
   const existing = await fbListTxByMonth(mKey);
   const existingInstanceOf = new Set(existing.map((e) => e.instanceOf).filter(Boolean));
+  const skippedInstanceOf = getRecurringSkipSetForMonth(mKey);
 
   let wrote = 0;
   const batch = db.batch();
@@ -3457,6 +3483,7 @@ async function ensureRecurringForMonth(mKey) {
     if (!templateId) continue;
 
     if (existingInstanceOf.has(templateId)) continue;
+    if (skippedInstanceOf.has(templateId)) continue;
 
     const day = clamp(Number(t.dayOfMonth || 1), 1, 31);
     const due = dateFromMonthDay(mKey, day);
@@ -3480,6 +3507,11 @@ async function ensureRecurringForMonth(mKey) {
 
     batch.set(col.doc(entry.id), entry, { merge: true });
     wrote++;
+
+    // Se for instância recorrente, marca o template como "não gerar" neste mês.
+    if (e.recurring && e.instanceOf) {
+      await markRecurringSkippedForMonth(mKey, e.instanceOf);
+    }
   }
 
   if (wrote > 0) await batch.commit();
