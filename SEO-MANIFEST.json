@@ -126,10 +126,35 @@
   "metaTagsAdded": {
     "total": 18,
     "breakdown": {
-      "essential": ["charset", "viewport", "robots", "language", "copyright"],
-      "seo": ["title", "description", "keywords"],
-      "social": ["og:title", "og:description", "og:image", "og:url", "og:site_name", "og:locale", "twitter:card", "twitter:title", "twitter:description", "twitter:image"],
-      "technical": ["canonical", "color-scheme", "theme-color"]
+      "essential": [
+        "charset",
+        "viewport",
+        "robots",
+        "language",
+        "copyright"
+      ],
+      "seo": [
+        "title",
+        "description",
+        "keywords"
+      ],
+      "social": [
+        "og:title",
+        "og:description",
+        "og:image",
+        "og:url",
+        "og:site_name",
+        "og:locale",
+        "twitter:card",
+        "twitter:title",
+        "twitter:description",
+        "twitter:image"
+      ],
+      "technical": [
+        "canonical",
+        "color-scheme",
+        "theme-color"
+      ]
     }
   },
   "jsonLdSchemas": [
@@ -139,11 +164,26 @@
         "name": "Spendify",
         "description": "Personal and family financial management application",
         "offers": [
-          {"name": "Basic Plan", "price": "10.90", "currency": "BRL"},
-          {"name": "Pro Plan", "price": "15.90", "currency": "BRL"},
-          {"name": "Family Plan", "price": "25.90", "currency": "BRL"}
+          {
+            "name": "Basic Plan",
+            "price": "10.90",
+            "currency": "BRL"
+          },
+          {
+            "name": "Pro Plan",
+            "price": "15.90",
+            "currency": "BRL"
+          },
+          {
+            "name": "Family Plan",
+            "price": "25.90",
+            "currency": "BRL"
+          }
         ],
-        "aggregateRating": {"ratingValue": "4.8", "ratingCount": "157"}
+        "aggregateRating": {
+          "ratingValue": "4.8",
+          "ratingCount": "157"
+        }
       }
     },
     {
@@ -151,7 +191,11 @@
       "properties": {
         "name": "Spendify",
         "description": "Simple and powerful financial control for people and families",
-        "sameAs": ["facebook", "twitter", "instagram"]
+        "sameAs": [
+          "facebook",
+          "twitter",
+          "instagram"
+        ]
       }
     }
   ],
@@ -207,29 +251,80 @@
   },
   "nextActions": {
     "immediate": [
-      {"action": "git add -A", "time": "2 min"},
-      {"action": "git commit", "time": "2 min"},
-      {"action": "git push", "time": "2 min"},
-      {"action": "Verify Netlify deploy", "time": "5 min"}
+      {
+        "action": "git add -A",
+        "time": "2 min"
+      },
+      {
+        "action": "git commit",
+        "time": "2 min"
+      },
+      {
+        "action": "git push",
+        "time": "2 min"
+      },
+      {
+        "action": "Verify Netlify deploy",
+        "time": "5 min"
+      }
     ],
     "critical": [
-      {"action": "Google Search Console setup", "time": "10 min"},
-      {"action": "Add property", "time": "5 min"},
-      {"action": "Verify ownership", "time": "5 min"},
-      {"action": "Submit sitemap", "time": "2 min"},
-      {"action": "Request indexation", "time": "3 min"}
+      {
+        "action": "Google Search Console setup",
+        "time": "10 min"
+      },
+      {
+        "action": "Add property",
+        "time": "5 min"
+      },
+      {
+        "action": "Verify ownership",
+        "time": "5 min"
+      },
+      {
+        "action": "Submit sitemap",
+        "time": "2 min"
+      },
+      {
+        "action": "Request indexation",
+        "time": "3 min"
+      }
     ],
     "important": [
-      {"action": "Add Google Analytics 4", "time": "15 min"},
-      {"action": "Monitor GSC Performance", "time": "5 min/day"},
-      {"action": "Implement lazy loading", "time": "1-2 hours"},
-      {"action": "Create blog content", "time": "4+ hours"}
+      {
+        "action": "Add Google Analytics 4",
+        "time": "15 min"
+      },
+      {
+        "action": "Monitor GSC Performance",
+        "time": "5 min/day"
+      },
+      {
+        "action": "Implement lazy loading",
+        "time": "1-2 hours"
+      },
+      {
+        "action": "Create blog content",
+        "time": "4+ hours"
+      }
     ],
     "ongoing": [
-      {"action": "Monitor Core Web Vitals", "time": "2 min/week"},
-      {"action": "Track rankings", "time": "5 min/week"},
-      {"action": "Create quality content", "time": "4+ hours/week"},
-      {"action": "Build backlinks", "time": "2+ hours/week"}
+      {
+        "action": "Monitor Core Web Vitals",
+        "time": "2 min/week"
+      },
+      {
+        "action": "Track rankings",
+        "time": "5 min/week"
+      },
+      {
+        "action": "Create quality content",
+        "time": "4+ hours/week"
+      },
+      {
+        "action": "Build backlinks",
+        "time": "2+ hours/week"
+      }
     ]
   },
   "documentation": {
@@ -249,15 +344,43 @@
   },
   "tools": {
     "required": [
-      {"name": "Google Search Console", "url": "https://search.google.com/search-console/", "cost": "FREE"},
-      {"name": "Google Analytics 4", "url": "https://analytics.google.com/", "cost": "FREE"},
-      {"name": "Google PageSpeed Insights", "url": "https://pagespeed.web.dev/", "cost": "FREE"},
-      {"name": "Lighthouse", "url": "Chrome DevTools (F12)", "cost": "FREE"}
+      {
+        "name": "Google Search Console",
+        "url": "https://search.google.com/search-console/",
+        "cost": "FREE"
+      },
+      {
+        "name": "Google Analytics 4",
+        "url": "https://analytics.google.com/",
+        "cost": "FREE"
+      },
+      {
+        "name": "Google PageSpeed Insights",
+        "url": "https://pagespeed.web.dev/",
+        "cost": "FREE"
+      },
+      {
+        "name": "Lighthouse",
+        "url": "Chrome DevTools (F12)",
+        "cost": "FREE"
+      }
     ],
     "optional": [
-      {"name": "SEMrush", "url": "https://www.semrush.com/", "cost": "Paid (has free tier)"},
-      {"name": "Ahrefs", "url": "https://ahrefs.com/", "cost": "Paid (has free tier)"},
-      {"name": "Moz", "url": "https://moz.com/", "cost": "Paid (has free tier)"}
+      {
+        "name": "SEMrush",
+        "url": "https://www.semrush.com/",
+        "cost": "Paid (has free tier)"
+      },
+      {
+        "name": "Ahrefs",
+        "url": "https://ahrefs.com/",
+        "cost": "Paid (has free tier)"
+      },
+      {
+        "name": "Moz",
+        "url": "https://moz.com/",
+        "cost": "Paid (has free tier)"
+      }
     ]
   },
   "risks": {

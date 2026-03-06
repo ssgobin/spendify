@@ -1925,7 +1925,7 @@ auth.onAuthStateChanged(async (user) => {
       if (!isNaN(startDate.getTime())) {
         const renewalDate = new Date(startDate.getTime() + 30 * 24 * 60 * 60 * 1000);
         const now = new Date();
-        
+
         // Se passou da data de renovação, plano expirou
         if (renewalDate < now) {
           console.log("[Auth] Plano expirado, bloqueando acesso:", { plan, renewalDate });
@@ -2550,7 +2550,7 @@ async function loadPlanDetails() {
     const now = new Date();
     let startDate = null;
     let renewalDate = null;
-    
+
     // Valida planStartDate antes de criar a data
     if (planStartDate) {
       startDate = new Date(planStartDate);
@@ -2561,7 +2561,7 @@ async function loadPlanDetails() {
         renewalDate = new Date(startDate.getTime() + 30 * 24 * 60 * 60 * 1000);
       }
     }
-    
+
     const isExpired = renewalDate && renewalDate < now;
 
     // Exibe datas de início e renovação
@@ -2641,9 +2641,9 @@ async function loadPlanDetails() {
         const userData = userDoc.data() || {};
         userHasAI = userData.aiPurchased === true;
         aiPurchasedAt = userData.aiPurchasedAt || null;
-        
+
         console.log("[AI Debug] Carregando IA:", { userHasAI, aiPurchasedAt, type: typeof aiPurchasedAt });
-        
+
         // ✅ Calcula e valida data de renovação SEMPRE que tem IA ativa
         if (userHasAI && aiPurchasedAt) {
           // Converte Timestamp do Firebase para millisegundos
@@ -2655,14 +2655,14 @@ async function loadPlanDetails() {
             // É um objeto com seconds e nanoseconds
             aiTimestamp = aiPurchasedAt.seconds * 1000 + Math.floor(aiPurchasedAt.nanoseconds / 1000000);
           }
-          
+
           const aiStart = new Date(aiTimestamp);
           console.log("[AI Debug] Data criada:", { aiStart, isValid: !isNaN(aiStart.getTime()), aiTimestamp });
-          
+
           if (!isNaN(aiStart.getTime())) {
             const aiRenewal = new Date(aiStart.getTime() + 30 * 24 * 60 * 60 * 1000);
             const now = new Date();
-            
+
             // Se passou da data de renovação, IA expirou
             if (aiRenewal < now) {
               console.log("[AI] IA expirada, removendo acesso:", { aiRenewal, now });

@@ -10,7 +10,7 @@
  */
 function updatePageMeta(title, description) {
   document.title = title;
-  
+
   let metaDescription = document.querySelector('meta[name="description"]');
   if (!metaDescription) {
     metaDescription = document.createElement('meta');
@@ -18,7 +18,7 @@ function updatePageMeta(title, description) {
     document.head.appendChild(metaDescription);
   }
   metaDescription.setAttribute('content', description);
-  
+
   // Atualizar Open Graph tags
   updateOpenGraphMeta('og:title', title);
   updateOpenGraphMeta('og:description', description);
@@ -140,7 +140,7 @@ function trackPageView(pageName, path) {
       'page_title': pageName
     });
   }
-  
+
   // Fallback para Google Analytics antigo
   if (typeof ga !== 'undefined') {
     ga('send', 'pageview', path);
@@ -163,12 +163,12 @@ function trackConversion(eventName, eventData = {}) {
  */
 function initScrollTracking() {
   let scrollPercentage = 0;
-  
+
   window.addEventListener('scroll', () => {
     const documentHeight = document.documentElement.scrollHeight - window.innerHeight;
     const scrolled = window.scrollY / documentHeight;
     scrollPercentage = Math.round(scrolled * 100);
-    
+
     // Rastrear marcos importantes
     if (scrollPercentage === 25 || scrollPercentage === 50 || scrollPercentage === 75 || scrollPercentage === 100) {
       trackConversion('scroll_depth', { value: scrollPercentage });
@@ -181,7 +181,7 @@ function initScrollTracking() {
  */
 function initTimeTracking() {
   const startTime = Date.now();
-  
+
   window.addEventListener('beforeunload', () => {
     const timeOnPage = Date.now() - startTime;
     trackConversion('time_on_page', { value: timeOnPage / 1000 }); // em segundos
@@ -195,24 +195,24 @@ function initTimeTracking() {
 async function trackCoreWebVitals() {
   try {
     const { getCLS, getFID, getLCP, getFCP, getTTFB } = await import('https://unpkg.com/web-vitals?module');
-    
+
     getCLS(metric => {
       console.log('CLS:', metric.value);
       // Enviar para backend se necessário
     });
-    
+
     getFID(metric => {
       console.log('FID:', metric.value);
     });
-    
+
     getLCP(metric => {
       console.log('LCP:', metric.value);
     });
-    
+
     getFCP(metric => {
       console.log('FCP:', metric.value);
     });
-    
+
     getTTFB(metric => {
       console.log('TTFB:', metric.value);
     });
@@ -230,7 +230,7 @@ function addInternalLinks() {
     { href: '#features', text: 'Principais Recursos', title: 'Ver os principais recursos do Spendify' },
     { href: '#pricing', text: 'Planos de Preço', title: 'Ver e comparar nossos planos' }
   ];
-  
+
   const nav = document.querySelector('nav');
   if (nav) {
     const ul = nav.querySelector('ul') || document.createElement('ul');
@@ -253,7 +253,7 @@ function addInternalLinks() {
 function validateImageAltText() {
   const images = document.querySelectorAll('img');
   const missingAlt = [];
-  
+
   images.forEach((img, index) => {
     if (!img.alt || img.alt.trim() === '') {
       missingAlt.push({
@@ -263,13 +263,13 @@ function validateImageAltText() {
       });
     }
   });
-  
+
   if (missingAlt.length > 0) {
     console.warn('❌ Imagens com alt text faltando:', missingAlt);
   } else {
     console.log('✅ Todas as imagens possuem alt text');
   }
-  
+
   return missingAlt;
 }
 
@@ -302,7 +302,7 @@ function generateSitemapJSON() {
       }
     ]
   };
-  
+
   return sitemap;
 }
 
@@ -322,22 +322,22 @@ function initSEOOptimizations() {
 
 function initAllSEO() {
   console.log('🚀 Iniciando otimizações de SEO...');
-  
+
   // Lazy loading de imagens
   initLazyLoading();
-  
+
   // Validar alt text
   validateImageAltText();
-  
+
   // Scroll tracking
   initScrollTracking();
-  
+
   // Time tracking
   initTimeTracking();
-  
+
   // Core Web Vitals (se disponível)
   // trackCoreWebVitals();
-  
+
   console.log('✅ Otimizações de SEO ativadas!');
 }
 
