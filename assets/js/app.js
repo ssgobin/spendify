@@ -3272,12 +3272,6 @@ async function onDelete(id) {
     return;
   }
 
-  // Verificação de exclusões pendentes duplicadas
-  if (pendingDelete.has(id)) {
-    showToast("info", "Exclusão já está em andamento", 2000);
-    return;
-  }
-
   const ok = await uiConfirm({
     title: "Excluir lançamento?",
     text: `“${e.name}” será removido.`,
@@ -3288,77 +3282,26 @@ async function onDelete(id) {
   });
   if (!ok) return;
 
-  // Cópia profunda do objeto para rollback confiável
+  // Cópia profunda para rollback confiável em caso de falha no backend
   const entryCopy = JSON.parse(JSON.stringify(e));
 
-  // remove local imediatamente (efeito rápido)
+  // Remove local imediatamente para resposta rápida da UI
   deleteEntryLocal(mKey, id);
   renderAll();
 
-  // Rastreia se o undo foi clicado
-  let undoWasExecuted = false;
-
-  // agenda commit definitivo em 5s
-  const timer = setTimeout(async () => {
-    // Se o undo foi clicado, não delete do Firebase
-    if (undoWasExecuted) {
-      console.log("onDelete: Undo foi clicado, deletação cancelada");
-      pendingDelete.delete(id);
-      return;
-    }
-
-    await safeRun("excluir lançamento", async () => {
-      try {
-        await fbDeleteTx(id);
-        pendingDelete.delete(id);
-        showToast("success", "Exclusão confirmada ✅", 1200);
-      } catch (err) {
-        // Tratamento de erro com restauração automática em caso de falha no Firebase
-        console.error("Erro ao excluir do Firebase:", err);
-        upsertEntryLocal(mKey, entryCopy);
-        pendingDelete.delete(id);
-        renderAll();
-        showToast("error", "Falha ao excluir. Item restaurado.", 3000);
-      }
-    }).catch(() => {
-      // Erro já tratado no bloco try/catch acima
-    });
-  }, 5000);
-
-  pendingDelete.set(id, { entry: entryCopy, mKey, timer });
-
-  // toast undo
-  const undoToastEl = document.getElementById("undoToast");
-  const undoMsg = document.getElementById("undoToastMsg");
-  const undoBtn = document.getElementById("undoToastBtn");
-
-  if (undoMsg) undoMsg.textContent = `Lançamento excluído: ${e.name}`;
-  const toastInst = window.bootstrap?.Toast?.getOrCreateInstance(undoToastEl, { delay: 5000 });
-  toastInst?.show();
-
-  if (undoBtn) {
-    // Remoção de event handlers duplicados no botão "Desfazer"
-    const newUndoBtn = undoBtn.cloneNode(true);
-    undoBtn.parentNode.replaceChild(newUndoBtn, undoBtn);
-    
-    newUndoBtn.onclick = () => {
-      const p = pendingDelete.get(id);
-      if (!p) {
-        showToast("warning", "Não foi possível desfazer", 2000);
-        return;
-      }
-      
-      // Marca que undo foi executado para cancelar a deletação do Firebase
-      undoWasExecuted = true;
-      
-      clearTimeout(p.timer);
-      upsertEntryLocal(p.mKey, p.entry);
-      pendingDelete.delete(id);
+  await safeRun("excluir lançamento", async () => {
+    try {
+      await fbDeleteTx(id);
+      showToast("success", "Lançamento excluído ✅", 1200);
+    } catch (err) {
+      console.error("Erro ao excluir do Firebase:", err);
+      upsertEntryLocal(mKey, entryCopy);
       renderAll();
-      showToast("info", "Exclusão desfeita ↩️", 1200);
-      toastInst?.hide();
-    };
-  }
+      showToast("error", "Falha ao excluir. Item restaurado.", 3000);
+    }
+  }).catch(() => {
+    // Mensagens já tratadas acima
+  });
 }
 
 
