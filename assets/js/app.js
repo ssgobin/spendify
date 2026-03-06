@@ -2075,7 +2075,9 @@ function uid() {
 
 function cleanId(id) {
   const s = String(id || "").trim();
-  return s.length ? s : uid();
+  // Retorna o ID se for válido, caso contrário retorna string vazia
+  // uid() será gerado apenas quando necessário
+  return s.length > 0 ? s : "";
 }
 
 function monthKeyFromDate(dateStr) {
@@ -2936,6 +2938,7 @@ function renderTable(entries) {
   rows.innerHTML = pageItems
     .map((e) => {
       const amount = brl(e.amount);
+      const uniqueCheckId = `chk-${e.id}`;
       return `
       <tr class="table-row-highlight">
         <td>${pillType(e.type)}</td>
@@ -2948,7 +2951,7 @@ function renderTable(entries) {
         <td class="text-end fw-bold">${amount}</td>
         <td class="text-center">
           <div class="form-check d-inline-flex align-items-center justify-content-center">
-            <input class="form-check-input" type="checkbox" ${e.paid ? "checked" : ""} data-action="togglePaid" data-id="${e.id}">
+            <input class="form-check-input" type="checkbox" id="${uniqueCheckId}" ${e.paid ? "checked" : ""} data-action="togglePaid" data-id="${e.id}">
           </div>
         </td>
         <td class="text-end">
@@ -2963,25 +2966,44 @@ function renderTable(entries) {
   const any = entries.length > 0;
   emptyState.classList.toggle("d-none", any);
 
-  rows.querySelectorAll("[data-action]").forEach((btn) => {
-    btn.addEventListener("click", (ev) => {
-      const action = ev.currentTarget.getAttribute("data-action");
-      const id = ev.currentTarget.getAttribute("data-id");
-      if (action === "edit") openEdit(id);
-      if (action === "delete") onDelete(id);
-    });
-  });
+  // Event delegation para melhor performance e evitar duplicatas
+  rows.removeEventListener("click", handleRowClick);
+  rows.addEventListener("click", handleRowClick);
 
-  rows.querySelectorAll('input[data-action="togglePaid"]').forEach((chk) => {
-    chk.addEventListener("change", (ev) => {
-      const id = ev.currentTarget.getAttribute("data-id");
-      togglePaid(id, ev.currentTarget.checked);
-    });
-  });
+  rows.removeEventListener("change", handleCheckboxChange);
+  rows.addEventListener("change", handleCheckboxChange);
 
   renderPagination(totalPages);
+}
 
+// Handler de clicks nos botões (edit/delete)
+function handleRowClick(ev) {
+  const target = ev.target;
+  if (!target.hasAttribute("data-action")) return;
+  
+  const action = target.getAttribute("data-action");
+  const id = target.getAttribute("data-id");
+  
+  if (!id) return;
+  
+  if (action === "edit") {
+    ev.preventDefault();
+    openEdit(id);
+  } else if (action === "delete") {
+    ev.preventDefault();
+    onDelete(id);
+  }
+}
 
+// Handler de mudança nos checkboxes
+function handleCheckboxChange(ev) {
+  const target = ev.target;
+  if (target.getAttribute("data-action") !== "togglePaid") return;
+  
+  const id = target.getAttribute("data-id");
+  if (!id) return;
+  
+  togglePaid(id, target.checked);
 }
 
 
@@ -3163,6 +3185,16 @@ function updateHouseholdsTabVisibility() {
 // Modal handlers
 // ================================
 function openNew(type) {
+  // Valida o tipo
+  if (type !== "income" && type !== "expense") {
+    console.error("openNew: Tipo inválido", type);
+    type = "expense";
+  }
+
+  // Reseta o formulário completamente
+  entryForm.reset();
+
+  // Preenche com valores padrão
   entryModalTitle.textContent = type === "income" ? "Novo Recebimento" : "Nova Despesa";
   entryId.value = "";
   entryType.value = type;
@@ -3178,19 +3210,36 @@ function openNew(type) {
   const iso = dateFromMonthDay(mKey, new Date().getDate());
   entryDue.value = iso;
 
+  // Remove backdrop duplicado antes de abrir
+  cleanupBackdrops();
+
   entryModal.show();
 }
 
 function openEdit(id) {
+  if (!id) {
+    console.error("openEdit: ID inválido", id);
+    return;
+  }
+
   const mKey = getSelectedMonthKey();
   const md = getMonthData(mKey);
   const e = md.entries.find((x) => x.id === id);
-  if (!e) return;
+  
+  if (!e) {
+    console.error("openEdit: Lançamento não encontrado", id);
+    showToast("error", "Lançamento não encontrado", { timer: 2000 });
+    return;
+  }
 
+  // Limpa o formulário primeiro
+  entryForm.reset();
+
+  // Preenche com os dados do lançamento
   entryModalTitle.textContent = "Editar Lançamento";
-  entryId.value = e.id;
-  entryType.value = e.type;
-  entryDue.value = e.due;
+  entryId.value = e.id || "";
+  entryType.value = e.type || "expense";
+  entryDue.value = e.due || "";
   entryName.value = e.name || "";
   entryCategory.value = e.category || "";
   entryAmount.value = Number(e.amount || 0);
@@ -3199,14 +3248,35 @@ function openEdit(id) {
 
   if (entryRecurring) entryRecurring.checked = !!e.recurring;
 
+  // Remove backdrop duplicado antes de abrir
+  cleanupBackdrops();
+  
   entryModal.show();
 }
 
 async function onDelete(id) {
+  // Validação de ID
+  if (!id) {
+    console.error("onDelete: ID inválido", id);
+    return;
+  }
+
   const mKey = getSelectedMonthKey();
   const md = getMonthData(mKey);
   const e = md.entries.find((x) => x.id === id);
-  if (!e) return;
+  
+  // Validação de lançamento
+  if (!e) {
+    console.error("onDelete: Lançamento não encontrado", id);
+    showToast("error", "Lançamento não encontrado", 2000);
+    return;
+  }
+
+  // Verificação de exclusões pendentes duplicadas
+  if (pendingDelete.has(id)) {
+    showToast("info", "Exclusão já está em andamento", 2000);
+    return;
+  }
 
   const ok = await uiConfirm({
     title: "Excluir lançamento?",
@@ -3218,6 +3288,9 @@ async function onDelete(id) {
   });
   if (!ok) return;
 
+  // Cópia profunda do objeto para rollback confiável
+  const entryCopy = JSON.parse(JSON.stringify(e));
+
   // remove local imediatamente (efeito rápido)
   deleteEntryLocal(mKey, id);
   renderAll();
@@ -3225,14 +3298,24 @@ async function onDelete(id) {
   // agenda commit definitivo em 5s
   const timer = setTimeout(async () => {
     await safeRun("excluir lançamento", async () => {
-      await fbDeleteTx(id);
-      pendingDelete.delete(id);
-      showToast("success", "Exclusão confirmada ✅", 1200);
-
+      try {
+        await fbDeleteTx(id);
+        pendingDelete.delete(id);
+        showToast("success", "Exclusão confirmada ✅", 1200);
+      } catch (err) {
+        // Tratamento de erro com restauração automática em caso de falha no Firebase
+        console.error("Erro ao excluir do Firebase:", err);
+        upsertEntryLocal(mKey, entryCopy);
+        pendingDelete.delete(id);
+        renderAll();
+        showToast("error", "Falha ao excluir. Item restaurado.", 3000);
+      }
+    }).catch(() => {
+      // Erro já tratado no bloco try/catch acima
     });
   }, 5000);
 
-  pendingDelete.set(id, { entry: e, mKey, timer });
+  pendingDelete.set(id, { entry: entryCopy, mKey, timer });
 
   // toast undo
   const undoToastEl = document.getElementById("undoToast");
@@ -3244,9 +3327,16 @@ async function onDelete(id) {
   toastInst?.show();
 
   if (undoBtn) {
-    undoBtn.onclick = () => {
+    // Remoção de event handlers duplicados no botão "Desfazer"
+    const newUndoBtn = undoBtn.cloneNode(true);
+    undoBtn.parentNode.replaceChild(newUndoBtn, undoBtn);
+    
+    newUndoBtn.onclick = () => {
       const p = pendingDelete.get(id);
-      if (!p) return;
+      if (!p) {
+        showToast("warning", "Não foi possível desfazer", 2000);
+        return;
+      }
       clearTimeout(p.timer);
       upsertEntryLocal(p.mKey, p.entry);
       pendingDelete.delete(id);
@@ -3258,20 +3348,48 @@ async function onDelete(id) {
 }
 
 
+let togglePaidInProgress = new Set();
+
 async function togglePaid(id, paid) {
+  if (!id) return;
+  
+  // Evita múltiplas execuções simultâneas para o mesmo ID
+  if (togglePaidInProgress.has(id)) {
+    console.log("togglePaid: Já em processamento", id);
+    return;
+  }
+
   const mKey = getSelectedMonthKey();
   const md = getMonthData(mKey);
   const e = md.entries.find((x) => x.id === id);
-  if (!e) return;
+  
+  if (!e) {
+    console.error("togglePaid: Lançamento não encontrado", id);
+    return;
+  }
 
-  await safeRun("alterar status de pagamento", async () => {
-    e.paid = !!paid;
-    e.updatedAt = Date.now();
-    await fbUpsertTx(e);
-    upsertEntryLocal(mKey, e);
-    renderAll();
-    showToast("success", e.paid ? "Marcado como pago ✅" : "Marcado como em aberto ⏳", 1200);
-  });
+  // Se o estado já é o desejado, não faz nada
+  if (e.paid === !!paid) {
+    return;
+  }
+
+  togglePaidInProgress.add(id);
+
+  try {
+    await safeRun("alterar status de pagamento", async () => {
+      e.paid = !!paid;
+      e.updatedAt = Date.now();
+      await fbUpsertTx(e);
+      upsertEntryLocal(mKey, e);
+      
+      // Renderiza sem acionar novos eventos
+      renderSummary(md.entries || []);
+      
+      showToast("success", e.paid ? "Marcado como pago ✅" : "Marcado como em aberto ⏳", { timer: 1200 });
+    });
+  } finally {
+    togglePaidInProgress.delete(id);
+  }
 }
 
 
