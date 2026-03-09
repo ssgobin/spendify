@@ -1281,14 +1281,32 @@ btnEmailSignup?.addEventListener("click", async (e) => {
 
     // 3) Salva nome e CPF no Firestore
     const uid = userCredential.user.uid;
+    const now = Date.now();
+    const trialEndDate = now + (7 * 24 * 60 * 60 * 1000); // 7 dias de trial
+
     await db.collection("users").doc(uid).set(
       {
         name: fullName,
         document: formatBrazilianDocument(cpf),
         email: signupEmail.value,
         uid: uid,
+        // Adiciona free trial automático
+        plan: "basic",
+        planStartDate: now,
+        planTrialEndDate: trialEndDate,
         createdAt: firebase.firestore.FieldValue.serverTimestamp(),
         updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
+      },
+      { merge: true }
+    );
+
+    // Também salva nas settings para quickaccess
+    await db.collection("users").doc(uid).collection("meta").doc("settings").set(
+      {
+        plan: "basic",
+        planStartDate: now,
+        planTrialEndDate: trialEndDate,
+        updatedAt: now,
       },
       { merge: true }
     );
@@ -1391,7 +1409,7 @@ async function ensureUserHasDocument(user) {
     // Se já tem document válido, não faz nada
     if (hasDocument) return;
 
-    // Pede para preencher CPF/CNPJ (especialmente para Google)
+    // Pede para preencher CPF/CNPJ (especialmente para Google/novos usuários)
     const name = userData.name || user.displayName || "";
     const result = await getDocumentData(name);
     
@@ -1400,16 +1418,84 @@ async function ensureUserHasDocument(user) {
     const { fullName, document } = result;
 
     // Salva CPF/CNPJ e atualiza nome se necessário
+    const now = Date.now();
+    const isFreshAccount = !userData.plan || userData.plan === "none";
+    
+    const updateData = {
+      name: fullName || name,
+      document: formatBrazilianDocument(document),
+      updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
+    };
+
+    // Se for nova conta ou não tem plano, adiciona free trial
+    if (isFreshAccount) {
+      updateData.plan = "basic";
+      updateData.planStartDate = now;
+      updateData.planTrialEndDate = now + (7 * 24 * 60 * 60 * 1000); // 7 dias
+    }
+
+    await db.collection("users").doc(user.uid).set(updateData, { merge: true });
+
+    // Também atualiza settings
+    if (isFreshAccount) {
+      await db.collection("users").doc(user.uid).collection("meta").doc("settings").set(
+        {
+          plan: "basic",
+          planStartDate: now,
+          planTrialEndDate: now + (7 * 24 * 60 * 60 * 1000),
+          updatedAt: now,
+        },
+        { merge: true }
+      );
+    }
+  } catch (e) {
+    console.error("Erro ao verificar/pedir document:", e);
+  }
+}
+
+// ================================
+// Garante que usuário tem free trial
+// ================================
+async function ensureUserHasTrial(user) {
+  if (!user || !user.uid) return;
+
+  try {
+    const userDoc = await db.collection("users").doc(user.uid).get();
+    const userData = userDoc.exists ? userDoc.data() : {};
+    
+    // Se já tem um plano válido que não expirou, não faz nada
+    if (userData.plan && userData.plan !== "none" && userData.planTrialEndDate && userData.planTrialEndDate > Date.now()) {
+      return;
+    }
+
+    // Se não tem plano ou está expirado, adiciona free trial
+    const now = Date.now();
+    const trialEndDate = now + (7 * 24 * 60 * 60 * 1000); // 7 dias
+
+    console.log("[Trial Sync] Adicionando free trial para usuário:", user.uid);
+
     await db.collection("users").doc(user.uid).set(
       {
-        name: fullName || name,
-        document: formatBrazilianDocument(document),
+        plan: "basic",
+        planStartDate: now,
+        planTrialEndDate: trialEndDate,
         updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
       },
       { merge: true }
     );
+
+    // Sincroniza em settings
+    await db.collection("users").doc(user.uid).collection("meta").doc("settings").set(
+      {
+        plan: "basic",
+        planStartDate: now,
+        planTrialEndDate: trialEndDate,
+        updatedAt: now,
+      },
+      { merge: true }
+    );
   } catch (e) {
-    console.error("Erro ao verificar/pedir document:", e);
+    console.error("Erro ao garantir free trial:", e);
   }
 }
 
@@ -2136,21 +2222,37 @@ auth.onAuthStateChanged(async (user) => {
     syncConfigToUI();
     let plan = String(state.config.plan || "none");
 
-    // ✅ Verifica se o plano expirou
-    if (plan !== "none" && state.config.planStartDate) {
-      const startDate = new Date(state.config.planStartDate);
-      if (!isNaN(startDate.getTime())) {
-        const renewalDate = new Date(startDate.getTime() + 30 * 24 * 60 * 60 * 1000);
-        const now = new Date();
-
-        // Se passou da data de renovação, plano expirou
-        if (renewalDate < now) {
-          console.log("[Auth] Plano expirado, bloqueando acesso:", { plan, renewalDate });
+    // ✅ Verifica se o plano expirou (trial ou renovação)
+    if (plan !== "none" && (state.config.planTrialEndDate || state.config.planStartDate)) {
+      const now = Date.now();
+      
+      // Prioriza verificação de trial
+      if (state.config.planTrialEndDate) {
+        if (now > state.config.planTrialEndDate) {
+          console.log("[Auth] Trial expirado, bloqueando acesso:", { plan, trialEndDate: state.config.planTrialEndDate });
           // Limpa o plano expirado
-          await fbSaveSettings({ plan: "none", planStartDate: null, updatedAt: Date.now() });
+          await fbSaveSettings({ plan: "none", planStartDate: null, planTrialEndDate: null, updatedAt: Date.now() });
           state.config.plan = "none";
           state.config.planStartDate = null;
+          state.config.planTrialEndDate = null;
           plan = "none";
+        }
+      } else if (state.config.planStartDate) {
+        // Se não tem trial, verifica renovação de 30 dias para plano pago
+        const startDate = new Date(state.config.planStartDate);
+        if (!isNaN(startDate.getTime())) {
+          const renewalDate = new Date(startDate.getTime() + 30 * 24 * 60 * 60 * 1000);
+          const nowDate = new Date();
+          
+          // Se passou da data de renovação, plano expirou
+          if (renewalDate < nowDate) {
+            console.log("[Auth] Plano expirado, bloqueando acesso:", { plan, renewalDate });
+            // Limpa o plano expirado
+            await fbSaveSettings({ plan: "none", planStartDate: null, updatedAt: Date.now() });
+            state.config.plan = "none";
+            state.config.planStartDate = null;
+            plan = "none";
+          }
         }
       }
     }
@@ -2160,6 +2262,19 @@ auth.onAuthStateChanged(async (user) => {
       await ensureUserHasDocument(user);
     } catch (e) {
       console.warn("Erro ao verificar/pedir document:", e);
+    }
+
+    // ✅ Garante que usuário tem free trial se não tiver plano
+    try {
+      await ensureUserHasTrial(user);
+      // Recarrega settings caso tenha sido adicionado trial
+      const updatedSettings = await fbLoadSettings();
+      if (updatedSettings && updatedSettings.plan && updatedSettings.plan !== "none") {
+        state.config = updatedSettings;
+        plan = String(state.config.plan || "none");
+      }
+    } catch (e) {
+      console.warn("Erro ao garantir free trial:", e);
     }
 
     // ✅ Verifica se tem um plano válido, se não bloqueia acesso
