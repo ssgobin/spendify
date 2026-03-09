@@ -1,0 +1,71 @@
+[build]
+  command = "npm install"
+  functions = "netlify/functions"
+  publish = "."
+
+[functions]
+  node_bundler = "esbuild"
+  external_node_modules = ["firebase-admin"]
+
+# Redireciona requests de API para funciona serverless
+[[redirects]]
+  from = "/api/*"
+  to = "/.netlify/functions/api/:splat"
+  status = 200
+  force = true
+
+# Redireciona HTTP para HTTPS (SEO)
+[[redirects]]
+  from = "http://*"
+  to = "https://:splat"
+  status = 301
+  force = true
+
+# Redireciona WWW para non-WWW (escolha uma configuração)
+# Descomente se preferir forçar non-www
+# [[redirects]]
+#   from = "https://www.spendify.app/*"
+#   to = "https://spendify.app/:splat"
+#   status = 301
+
+# SEO e Headers de Segurança
+[[headers]]
+  for = "/*"
+  [headers.values]
+    # SSL/TLS
+    Strict-Transport-Security = "max-age=31536000; includeSubDomains; preload"
+    
+    # Security Headers
+    X-Frame-Options = "SAMEORIGIN"
+    X-Content-Type-Options = "nosniff"
+    X-XSS-Protection = "1; mode=block"
+    Referrer-Policy = "strict-origin-when-cross-origin"
+    
+    # Permissions Policy (antigo Feature-Policy)
+    Permissions-Policy = "geolocation=(), microphone=(), camera=()"
+    
+    # Content Security Policy (leve - ajustar conforme necessário)
+    Content-Security-Policy = "default-src 'self' https:; script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://cdnjs.cloudflare.com https://www.gstatic.com https://apis.google.com https://www.googleapis.com https://firebase.google.com https://*.firebaseapp.com; style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://cdnjs.cloudflare.com https://fonts.googleapis.com; font-src 'self' data: https://fonts.gstatic.com https://cdnjs.cloudflare.com; img-src 'self' data: https: blob:; connect-src 'self' https: wss: https://identitytoolkit.googleapis.com https://securetoken.googleapis.com https://firestore.googleapis.com https://www.googleapis.com; frame-src 'self' https://*.firebaseapp.com https://firebase.google.com https://accounts.google.com https://*.google.com"
+    
+    # SEO Headers
+    Cache-Control = "public, max-age=3600"
+
+# Cache para Assets Estáticos (melhor performance)
+[[headers]]
+  for = "/assets/*"
+  [headers.values]
+    Cache-Control = "public, max-age=31536000, immutable"
+
+# Cache para Fontes
+[[headers]]
+  for = "/assets/fonts/*"
+  [headers.values]
+    Cache-Control = "public, max-age=31536000, immutable"
+    Content-Type = "font/woff2; charset=utf-8"
+
+# Compressão automática do Netlify (já ativada por padrão)
+[[headers]]
+  for = "/*.html"
+  [headers.values]
+    Cache-Control = "public, max-age=0, must-revalidate"
+    Content-Type = "text/html; charset=utf-8"
