@@ -26,6 +26,17 @@ const db = firebase.firestore();
 
 let UID = null;
 
+const TRIAL_DURATION_DAYS = 3;
+const TRIAL_DURATION_MS = TRIAL_DURATION_DAYS * 24 * 60 * 60 * 1000;
+
+function isPaidPlan(plan) {
+  return ["basic", "pro", "family"].includes(String(plan || "").toLowerCase());
+}
+
+function isTrialPlan(plan) {
+  return String(plan || "").toLowerCase() === "trial";
+}
+
 // ================================
 // Escopo (pessoal vs cofre compartilhado)
 // ================================
@@ -846,6 +857,7 @@ async function openProfileFlow() {
 
   // Mapeia nome do plano
   const planName = {
+    trial: "Free Trial",
     basic: "Basic",
     pro: "Pro",
     family: "Family",
@@ -853,6 +865,7 @@ async function openProfileFlow() {
   }[currentPlan] || "Desconhecido";
 
   const planPrice = {
+    trial: `Grátis por ${TRIAL_DURATION_DAYS} dias`,
     basic: "R$ 10,90/mês",
     pro: "R$ 15,90/mês",
     family: "R$ 25,90/mês",
@@ -1282,7 +1295,7 @@ btnEmailSignup?.addEventListener("click", async (e) => {
     // 3) Salva nome e CPF no Firestore
     const uid = userCredential.user.uid;
     const now = Date.now();
-    const trialEndDate = now + (7 * 24 * 60 * 60 * 1000); // 7 dias de trial
+    const trialEndDate = now + TRIAL_DURATION_MS;
 
     await db.collection("users").doc(uid).set(
       {
@@ -1291,7 +1304,8 @@ btnEmailSignup?.addEventListener("click", async (e) => {
         email: signupEmail.value,
         uid: uid,
         // Adiciona free trial automático
-        plan: "basic",
+        plan: "trial",
+        trialUsed: true,
         planStartDate: now,
         planTrialEndDate: trialEndDate,
         createdAt: firebase.firestore.FieldValue.serverTimestamp(),
@@ -1303,7 +1317,8 @@ btnEmailSignup?.addEventListener("click", async (e) => {
     // Também salva nas settings para quickaccess
     await db.collection("users").doc(uid).collection("meta").doc("settings").set(
       {
-        plan: "basic",
+        plan: "trial",
+        trialUsed: true,
         planStartDate: now,
         planTrialEndDate: trialEndDate,
         updatedAt: now,
@@ -1429,9 +1444,10 @@ async function ensureUserHasDocument(user) {
 
     // Se for nova conta ou não tem plano, adiciona free trial
     if (isFreshAccount) {
-      updateData.plan = "basic";
+      updateData.plan = "trial";
+      updateData.trialUsed = true;
       updateData.planStartDate = now;
-      updateData.planTrialEndDate = now + (7 * 24 * 60 * 60 * 1000); // 7 dias
+      updateData.planTrialEndDate = now + TRIAL_DURATION_MS;
     }
 
     await db.collection("users").doc(user.uid).set(updateData, { merge: true });
@@ -1440,9 +1456,10 @@ async function ensureUserHasDocument(user) {
     if (isFreshAccount) {
       await db.collection("users").doc(user.uid).collection("meta").doc("settings").set(
         {
-          plan: "basic",
+          plan: "trial",
+          trialUsed: true,
           planStartDate: now,
-          planTrialEndDate: now + (7 * 24 * 60 * 60 * 1000),
+          planTrialEndDate: now + TRIAL_DURATION_MS,
           updatedAt: now,
         },
         { merge: true }
@@ -1463,20 +1480,25 @@ async function ensureUserHasTrial(user) {
     const userDoc = await db.collection("users").doc(user.uid).get();
     const userData = userDoc.exists ? userDoc.data() : {};
     
-    // Se já tem um plano válido que não expirou, não faz nada
-    if (userData.plan && userData.plan !== "none" && userData.planTrialEndDate && userData.planTrialEndDate > Date.now()) {
+    const plan = String(userData.plan || "none").toLowerCase();
+    const hasPaidPlan = isPaidPlan(plan);
+    const trialAlreadyUsed = userData.trialUsed === true || !!userData.planTrialEndDate || isTrialPlan(plan);
+
+    // Não cria trial para assinantes ou para quem já usou trial
+    if (hasPaidPlan || trialAlreadyUsed) {
       return;
     }
 
-    // Se não tem plano ou está expirado, adiciona free trial
+    // Usuário legado sem trial ganha 1 trial único
     const now = Date.now();
-    const trialEndDate = now + (7 * 24 * 60 * 60 * 1000); // 7 dias
+    const trialEndDate = now + TRIAL_DURATION_MS;
 
     console.log("[Trial Sync] Adicionando free trial para usuário:", user.uid);
 
     await db.collection("users").doc(user.uid).set(
       {
-        plan: "basic",
+        plan: "trial",
+        trialUsed: true,
         planStartDate: now,
         planTrialEndDate: trialEndDate,
         updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
@@ -1487,7 +1509,8 @@ async function ensureUserHasTrial(user) {
     // Sincroniza em settings
     await db.collection("users").doc(user.uid).collection("meta").doc("settings").set(
       {
-        plan: "basic",
+        plan: "trial",
+        trialUsed: true,
         planStartDate: now,
         planTrialEndDate: trialEndDate,
         updatedAt: now,
@@ -2223,22 +2246,28 @@ auth.onAuthStateChanged(async (user) => {
     let plan = String(state.config.plan || "none");
 
     // ✅ Verifica se o plano expirou (trial ou renovação)
-    if (plan !== "none" && (state.config.planTrialEndDate || state.config.planStartDate)) {
+    if (plan !== "none") {
       const now = Date.now();
-      
-      // Prioriza verificação de trial
-      if (state.config.planTrialEndDate) {
+
+      // Trial expira e bloqueia acesso
+      if (isTrialPlan(plan) && state.config.planTrialEndDate) {
         if (now > state.config.planTrialEndDate) {
           console.log("[Auth] Trial expirado, bloqueando acesso:", { plan, trialEndDate: state.config.planTrialEndDate });
-          // Limpa o plano expirado
-          await fbSaveSettings({ plan: "none", planStartDate: null, planTrialEndDate: null, updatedAt: Date.now() });
+          await fbSaveSettings({
+            plan: "none",
+            trialUsed: true,
+            planStartDate: null,
+            planTrialEndDate: null,
+            updatedAt: Date.now()
+          });
           state.config.plan = "none";
+          state.config.trialUsed = true;
           state.config.planStartDate = null;
           state.config.planTrialEndDate = null;
           plan = "none";
         }
-      } else if (state.config.planStartDate) {
-        // Se não tem trial, verifica renovação de 30 dias para plano pago
+      } else if (isPaidPlan(plan) && state.config.planStartDate) {
+        // Plano pago expira em 30 dias sem renovação
         const startDate = new Date(state.config.planStartDate);
         if (!isNaN(startDate.getTime())) {
           const renewalDate = new Date(startDate.getTime() + 30 * 24 * 60 * 60 * 1000);
@@ -2854,9 +2883,20 @@ async function loadPlanDetails() {
     const settings = await fbLoadSettings();
     const currentPlan = String(settings?.plan || "none").toLowerCase();
     const planStartDate = settings?.planStartDate || null;
+    const planTrialEndDate = settings?.planTrialEndDate || null;
 
     // Info do plano
     const planInfo = {
+      trial: {
+        name: "Free Trial",
+        price: "0,00",
+        icon: "🎁",
+        features: [
+          `Acesso completo por ${TRIAL_DURATION_DAYS} dias`,
+          "Após o trial, escolha um plano pago",
+          "Sem cobrança durante o período"
+        ]
+      },
       basic: {
         name: "Basic",
         price: "10,90",
@@ -2926,12 +2966,18 @@ async function loadPlanDetails() {
     // Valida planStartDate antes de criar a data
     if (planStartDate) {
       startDate = new Date(planStartDate);
-      // Verifica se é uma data válida
       if (isNaN(startDate.getTime())) {
         startDate = null;
-      } else {
-        renewalDate = new Date(startDate.getTime() + 30 * 24 * 60 * 60 * 1000);
       }
+    }
+
+    if (currentPlan === "trial" && planTrialEndDate) {
+      const trialEnd = new Date(planTrialEndDate);
+      if (!isNaN(trialEnd.getTime())) {
+        renewalDate = trialEnd;
+      }
+    } else if (startDate) {
+      renewalDate = new Date(startDate.getTime() + 30 * 24 * 60 * 60 * 1000);
     }
 
     const isExpired = renewalDate && renewalDate < now;

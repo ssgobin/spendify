@@ -307,6 +307,10 @@ function safeLog(context, data) {
   console.log(`[${context}]`, safe);
 }
 
+function isAdminFromToken(decodedToken) {
+  return decodedToken?.admin === true || decodedToken?.custom_claims?.admin === true;
+}
+
 app.get("/health", (req, res) => {
   res.json({ status: "ok", timestamp: new Date().toISOString() });
 });
@@ -321,7 +325,28 @@ function priceForPlan(plan) {
 
 async function setUserPlan(uid, plan) {
   const ref = db.collection("users").doc(uid).collection("meta").doc("settings");
-  await ref.set({ plan, planStartDate: Date.now(), updatedAt: Date.now() }, { merge: true });
+  const now = Date.now();
+  await ref.set(
+    {
+      plan,
+      trialUsed: true,
+      planStartDate: now,
+      planTrialEndDate: null,
+      updatedAt: now,
+    },
+    { merge: true }
+  );
+
+  await db.collection("users").doc(uid).set(
+    {
+      plan,
+      trialUsed: true,
+      planStartDate: now,
+      planTrialEndDate: null,
+      updatedAt: now,
+    },
+    { merge: true }
+  );
 }
 
 // ================================
@@ -711,8 +736,7 @@ app.post("/ai/chat", aiLimiter, verifyFirebaseToken, async (req, res) => {
 app.post("/admin/set-plan", adminLimiter, verifyFirebaseToken, async (req, res) => {
   try {
     // SECURITY: Verificar se é admin via custom claims
-    const claims = req.user.custom_claims || {};
-    if (!claims.admin === true) {
+    if (!isAdminFromToken(req.user)) {
       console.warn("[Security] Acesso negado ao admin por usuário não-admin:", { uid: req.user.uid });
       return res.status(403).json({ error: "forbidden", message: "Acesso negado" });
     }

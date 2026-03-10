@@ -345,6 +345,36 @@ function safeLog(context, data) {
     console.log(`[${context}]`, safe);
 }
 
+function secureCompareSecrets(input, expected) {
+    if (!input || !expected) return false;
+    const inputBuf = Buffer.from(String(input));
+    const expectedBuf = Buffer.from(String(expected));
+    if (inputBuf.length !== expectedBuf.length) return false;
+    try {
+        return crypto.timingSafeEqual(inputBuf, expectedBuf);
+    } catch {
+        return false;
+    }
+}
+
+function isAdminFromToken(decodedToken) {
+    return decodedToken?.admin === true || decodedToken?.custom_claims?.admin === true;
+}
+
+const adminKeySchema = Joi.object({
+    adminKey: Joi.string().required().min(32).max(128)
+}).options({ stripUnknown: true });
+
+const checkStatusSchema = Joi.object({
+    orderId: Joi.string().required().max(100).pattern(/^uid_[a-zA-Z0-9]+_(basic|pro|family|ai)_\d+$/),
+    adminKey: Joi.string().required().min(32).max(128)
+}).options({ stripUnknown: true });
+
+const activateAiSchema = Joi.object({
+    uid: Joi.string().required().pattern(/^[a-zA-Z0-9]{20,}$/),
+    adminKey: Joi.string().required().min(32).max(128)
+}).options({ stripUnknown: true });
+
 app.get("/api/health", (req, res) => {
     res.json({ status: "ok", timestamp: new Date().toISOString() });
 });
@@ -424,7 +454,28 @@ function getPrice(planOrType) {
 
 async function setUserPlan(uid, plan) {
     const ref = db.collection("users").doc(uid).collection("meta").doc("settings");
-    await ref.set({ plan, planStartDate: Date.now(), updatedAt: Date.now() }, { merge: true });
+    const now = Date.now();
+    await ref.set(
+        {
+            plan,
+            trialUsed: true,
+            planStartDate: now,
+            planTrialEndDate: null,
+            updatedAt: now
+        },
+        { merge: true }
+    );
+
+    await db.collection("users").doc(uid).set(
+        {
+            plan,
+            trialUsed: true,
+            planStartDate: now,
+            planTrialEndDate: null,
+            updatedAt: now
+        },
+        { merge: true }
+    );
 }
 
 // ================================
@@ -699,30 +750,26 @@ app.post("/api/payments/webhook", async (req, res) => {
         const body = req.body || {};
         const signature = req.headers["x-webhook-signature"];
 
-        // Log completo do webhook recebido para debug
-        console.log("[Webhook] Recebido:", {
-            body: JSON.stringify(body),
-            headers: JSON.stringify(req.headers),
-            signature: signature
-        });
-
-        // Verificação de assinatura (desabilitada se PAGHIPER_WEBHOOK_SECRET não configurado)
+        // Verificação de assinatura
         const webhookSecret = process.env.PAGHIPER_WEBHOOK_SECRET;
-        if (webhookSecret && signature) {
-            try {
-                if (!verifyWebhookSignature(body, signature)) {
-                    console.warn("[Webhook] Assinatura inválida, mas processando mesmo assim...");
-                    // Não bloqueia, apenas avisa
-                }
-            } catch (sigError) {
-                console.warn("[Webhook] Erro ao verificar assinatura:", sigError.message);
-            }
-        } else {
-            console.warn("[Webhook] Verificação de assinatura desabilitada (sem secret ou signature)");
+        if (!webhookSecret) {
+            console.error("[Webhook] Secret não configurado");
+            return res.status(500).send("Webhook secret not configured");
+        }
+
+        if (!signature || !verifyWebhookSignature(body, signature)) {
+            console.warn("[Webhook] Assinatura inválida");
+            return res.status(401).send("Unauthorized");
         }
 
         const status = String(body.status || body.notification_status || "").toLowerCase();
         const orderId = String(body.order_id || body.reference || body.transaction_id || "");
+
+        safeLog("Webhook", {
+            orderId,
+            status,
+            signaturePresent: !!signature
+        });
 
         console.log("[Webhook] Processando:", { status, orderId });
 
@@ -739,8 +786,6 @@ app.post("/api/payments/webhook", async (req, res) => {
             console.warn("[Webhook] Falha ao parsear referência (formato inválido):", orderId);
             return res.status(400).send("Invalid reference format");
         }
-
-        safeLog("Webhook", { uid, plan, status });
 
         if (status === "paid" || status === "completed" || status === "approved") {
             // Se for IA, atualiza o campo aiPurchased do usuário
@@ -786,15 +831,20 @@ app.post("/api/payments/webhook", async (req, res) => {
 // ================================
 app.post("/api/payments/check-status", async (req, res) => {
     try {
-        const { orderId, adminKey } = req.body || {};
-
-        // Verificação básica de admin key
-        if (adminKey !== process.env.ADMIN_KEY) {
-            return res.status(403).json({ error: "forbidden" });
+        const { error, value } = checkStatusSchema.validate(req.body || {});
+        if (error) {
+            return res.status(400).json({ error: "validation_failed", message: error.details[0].message });
         }
 
-        if (!orderId) {
-            return res.status(400).json({ error: "missing_order_id" });
+        const { orderId, adminKey } = value;
+        const configuredAdminKey = process.env.ADMIN_KEY;
+
+        if (!configuredAdminKey) {
+            return res.status(503).json({ error: "admin_not_configured" });
+        }
+
+        if (!secureCompareSecrets(adminKey, configuredAdminKey)) {
+            return res.status(403).json({ error: "forbidden" });
         }
 
         const m = orderId.match(/^uid_([a-zA-Z0-9]+)_(basic|pro|family|ai)_\d+$/);
@@ -866,14 +916,20 @@ app.post("/api/payments/check-status", async (req, res) => {
 // ================================
 app.post("/api/admin/activate-ai", async (req, res) => {
     try {
-        const { uid, adminKey } = req.body || {};
-
-        if (adminKey !== process.env.ADMIN_KEY) {
-            return res.status(403).json({ error: "forbidden" });
+        const { error, value } = activateAiSchema.validate(req.body || {});
+        if (error) {
+            return res.status(400).json({ error: "validation_failed", message: error.details[0].message });
         }
 
-        if (!uid) {
-            return res.status(400).json({ error: "missing_uid" });
+        const { uid, adminKey } = value;
+        const configuredAdminKey = process.env.ADMIN_KEY;
+
+        if (!configuredAdminKey) {
+            return res.status(503).json({ error: "admin_not_configured" });
+        }
+
+        if (!secureCompareSecrets(adminKey, configuredAdminKey)) {
+            return res.status(403).json({ error: "forbidden" });
         }
 
         await db.collection("users").doc(uid).set(
@@ -902,9 +958,7 @@ app.post("/api/admin/activate-ai", async (req, res) => {
 // ================================
 app.post("/api/admin/set-plan", verifyFirebaseToken, async (req, res) => {
     try {
-        // SECURITY: Verificar se é admin via custom_claims (não apenas admin)
-        const claims = req.user.custom_claims || {};
-        if (claims.admin !== true) {
+        if (!isAdminFromToken(req.user)) {
             console.warn("[Security] Acesso negado ao admin por usuário não-admin:", { uid: req.user.uid });
             return res.status(403).json({ error: "forbidden", message: "Acesso negado" });
         }
